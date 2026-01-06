@@ -7,7 +7,7 @@ import (
 	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry/remote/errcode"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 // Sentinel errors for registry operations.
@@ -27,7 +27,7 @@ func mapError(err error) error {
 
 	// Check for ORAS errdef sentinel errors first.
 	if errors.Is(err, errdef.ErrNotFound) {
-		return blobber.ErrNotFound
+		return core.ErrNotFound
 	}
 
 	var errResp *errcode.ErrorResponse
@@ -35,20 +35,20 @@ func mapError(err error) error {
 		// Check HTTP status code first
 		switch errResp.StatusCode {
 		case http.StatusUnauthorized, http.StatusForbidden:
-			return blobber.ErrUnauthorized
+			return core.ErrUnauthorized
 		case http.StatusNotFound:
-			return blobber.ErrNotFound
+			return core.ErrNotFound
 		}
 
 		// Check specific error codes
 		for _, e := range errResp.Errors {
 			switch e.Code {
 			case errcode.ErrorCodeUnauthorized, errcode.ErrorCodeDenied:
-				return blobber.ErrUnauthorized
+				return core.ErrUnauthorized
 			case errcode.ErrorCodeNameUnknown,
 				errcode.ErrorCodeManifestUnknown,
 				errcode.ErrorCodeBlobUnknown:
-				return blobber.ErrNotFound
+				return core.ErrNotFound
 			}
 		}
 	}

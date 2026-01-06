@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 	"github.com/gilmanlab/blobber/internal/safepath"
 )
 
@@ -25,7 +25,7 @@ func TestExtract(t *testing.T) {
 	tests := []struct {
 		name        string
 		fs          fstest.MapFS
-		compression blobber.Compression
+		compression core.Compression
 		wantFiles   []string
 	}{
 		{
@@ -33,7 +33,7 @@ func TestExtract(t *testing.T) {
 			fs: fstest.MapFS{
 				"hello.txt": &fstest.MapFile{Data: []byte("hello world"), Mode: 0o644},
 			},
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 			wantFiles:   []string{"hello.txt"},
 		},
 		{
@@ -42,7 +42,7 @@ func TestExtract(t *testing.T) {
 				"subdir":          &fstest.MapFile{Mode: 0o755 | os.ModeDir},
 				"subdir/file.txt": &fstest.MapFile{Data: []byte("nested content"), Mode: 0o644},
 			},
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 			wantFiles:   []string{"subdir/file.txt"},
 		},
 		{
@@ -51,7 +51,7 @@ func TestExtract(t *testing.T) {
 				"a.txt": &fstest.MapFile{Data: []byte("aaa"), Mode: 0o644},
 				"b.txt": &fstest.MapFile{Data: []byte("bbb"), Mode: 0o644},
 			},
-			compression: blobber.ZstdCompression(),
+			compression: core.ZstdCompression(),
 			wantFiles:   []string{"a.txt", "b.txt"},
 		},
 	}
@@ -74,7 +74,7 @@ func TestExtract(t *testing.T) {
 
 			// Extract
 			validator := safepath.NewValidator()
-			limits := blobber.ExtractLimits{}
+			limits := core.ExtractLimits{}
 			err = Extract(context.Background(), bytes.NewReader(data), destDir, validator, limits)
 			require.NoError(t, err)
 
@@ -97,7 +97,7 @@ func TestExtract_FileContent(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -106,7 +106,7 @@ func TestExtract_FileContent(t *testing.T) {
 
 	destDir := t.TempDir()
 	validator := safepath.NewValidator()
-	limits := blobber.ExtractLimits{}
+	limits := core.ExtractLimits{}
 
 	err = Extract(context.Background(), bytes.NewReader(data), destDir, validator, limits)
 	require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestExtract_Symlink(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), OSFS(tmpDir), blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), OSFS(tmpDir), core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -145,7 +145,7 @@ func TestExtract_Symlink(t *testing.T) {
 
 	destDir := t.TempDir()
 	validator := safepath.NewValidator()
-	limits := blobber.ExtractLimits{}
+	limits := core.ExtractLimits{}
 
 	err = Extract(context.Background(), bytes.NewReader(data), destDir, validator, limits)
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestExtract_Limits(t *testing.T) {
 	tests := []struct {
 		name    string
 		fs      fstest.MapFS
-		limits  blobber.ExtractLimits
+		limits  core.ExtractLimits
 		wantErr error
 	}{
 		{
@@ -179,16 +179,16 @@ func TestExtract_Limits(t *testing.T) {
 				"b.txt": &fstest.MapFile{Data: []byte("b"), Mode: 0o644},
 				"c.txt": &fstest.MapFile{Data: []byte("c"), Mode: 0o644},
 			},
-			limits:  blobber.ExtractLimits{MaxFiles: 2},
-			wantErr: blobber.ErrExtractLimits,
+			limits:  core.ExtractLimits{MaxFiles: 2},
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name: "max file size exceeded",
 			fs: fstest.MapFS{
 				"large.txt": &fstest.MapFile{Data: make([]byte, 1000), Mode: 0o644},
 			},
-			limits:  blobber.ExtractLimits{MaxFileSize: 500},
-			wantErr: blobber.ErrExtractLimits,
+			limits:  core.ExtractLimits{MaxFileSize: 500},
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name: "max total size exceeded",
@@ -196,8 +196,8 @@ func TestExtract_Limits(t *testing.T) {
 				"a.txt": &fstest.MapFile{Data: make([]byte, 400), Mode: 0o644},
 				"b.txt": &fstest.MapFile{Data: make([]byte, 400), Mode: 0o644},
 			},
-			limits:  blobber.ExtractLimits{MaxTotalSize: 500},
-			wantErr: blobber.ErrExtractLimits,
+			limits:  core.ExtractLimits{MaxTotalSize: 500},
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name: "within limits",
@@ -205,7 +205,7 @@ func TestExtract_Limits(t *testing.T) {
 				"a.txt": &fstest.MapFile{Data: []byte("a"), Mode: 0o644},
 				"b.txt": &fstest.MapFile{Data: []byte("b"), Mode: 0o644},
 			},
-			limits:  blobber.ExtractLimits{MaxFiles: 10, MaxFileSize: 1000, MaxTotalSize: 10000},
+			limits:  core.ExtractLimits{MaxFiles: 10, MaxFileSize: 1000, MaxTotalSize: 10000},
 			wantErr: nil,
 		},
 	}
@@ -215,7 +215,7 @@ func TestExtract_Limits(t *testing.T) {
 			t.Parallel()
 
 			builder := NewBuilder(nil)
-			result, err := builder.Build(context.Background(), tt.fs, blobber.GzipCompression())
+			result, err := builder.Build(context.Background(), tt.fs, core.GzipCompression())
 			require.NoError(t, err)
 			defer result.Blob.Close()
 
@@ -244,7 +244,7 @@ func TestExtract_ContextCancellation(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -256,7 +256,7 @@ func TestExtract_ContextCancellation(t *testing.T) {
 
 	destDir := t.TempDir()
 	validator := safepath.NewValidator()
-	limits := blobber.ExtractLimits{}
+	limits := core.ExtractLimits{}
 
 	err = Extract(ctx, bytes.NewReader(data), destDir, validator, limits)
 	assert.Error(t, err, "Extract() should return error when context is canceled")
@@ -267,13 +267,13 @@ func TestExtract_InvalidArchive(t *testing.T) {
 
 	destDir := t.TempDir()
 	validator := safepath.NewValidator()
-	limits := blobber.ExtractLimits{}
+	limits := core.ExtractLimits{}
 
 	// Invalid data (not gzip or zstd)
 	invalidData := []byte("this is not a valid archive")
 
 	err := Extract(context.Background(), bytes.NewReader(invalidData), destDir, validator, limits)
-	assert.ErrorIs(t, err, blobber.ErrInvalidArchive)
+	assert.ErrorIs(t, err, core.ErrInvalidArchive)
 }
 
 func Test_detectAndDecompress(t *testing.T) {
@@ -281,15 +281,15 @@ func Test_detectAndDecompress(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		compression blobber.Compression
+		compression core.Compression
 	}{
 		{
 			name:        "gzip detection",
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 		},
 		{
 			name:        "zstd detection",
-			compression: blobber.ZstdCompression(),
+			compression: core.ZstdCompression(),
 		},
 	}
 
@@ -364,8 +364,8 @@ func TestExtract_HardlinkRejected(t *testing.T) {
 
 	destDir := t.TempDir()
 	validator := safepath.NewValidator()
-	limits := blobber.ExtractLimits{}
+	limits := core.ExtractLimits{}
 
 	err = Extract(context.Background(), &gzBuf, destDir, validator, limits)
-	assert.ErrorIs(t, err, blobber.ErrInvalidArchive)
+	assert.ErrorIs(t, err, core.ErrInvalidArchive)
 }

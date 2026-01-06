@@ -7,11 +7,11 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/containerd/stargz-snapshotter/estargz/zstdchunked"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 // Compile-time interface implementation check.
-var _ blobber.ArchiveReader = (*reader)(nil)
+var _ core.ArchiveReader = (*reader)(nil)
 
 // reader implements blobber.ArchiveReader using estargz.
 type reader struct{}
@@ -23,7 +23,7 @@ func NewReader() *reader {
 
 // ReadTOC extracts the TOC from an eStargz blob.
 // The size parameter is the total blob size (needed for footer location).
-func (r *reader) ReadTOC(ra io.ReaderAt, size int64) (*blobber.TOC, error) {
+func (r *reader) ReadTOC(ra io.ReaderAt, size int64) (*core.TOC, error) {
 	sr := io.NewSectionReader(ra, 0, size)
 
 	// Support both gzip and zstd compressed archives
@@ -31,16 +31,16 @@ func (r *reader) ReadTOC(ra io.ReaderAt, size int64) (*blobber.TOC, error) {
 		estargz.WithDecompressors(&zstdchunked.Decompressor{}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", blobber.ErrInvalidArchive, err)
+		return nil, fmt.Errorf("%w: %v", core.ErrInvalidArchive, err)
 	}
 
-	var entries []blobber.TOCEntry
+	var entries []core.TOCEntry
 
 	// Get root entry
 	root, ok := esr.Lookup("")
 	if !ok {
 		// Empty archive or no root
-		return &blobber.TOC{Entries: entries}, nil
+		return &core.TOC{Entries: entries}, nil
 	}
 
 	// Recursively collect all entries, omitting synthetic root (Name == "")
@@ -59,14 +59,14 @@ func (r *reader) ReadTOC(ra io.ReaderAt, size int64) (*blobber.TOC, error) {
 	}
 	collect(root)
 
-	return &blobber.TOC{Entries: entries}, nil
+	return &core.TOC{Entries: entries}, nil
 }
 
 // OpenFile returns a reader for a specific file within an eStargz blob.
 // The size parameter is the total blob size (needed for estargz.Open).
 //
-//nolint:gocritic // hugeParam: entry passed by value to match blobber.ArchiveReader interface
-func (r *reader) OpenFile(ra io.ReaderAt, size int64, entry blobber.TOCEntry) (io.Reader, error) {
+//nolint:gocritic // hugeParam: entry passed by value to match core.ArchiveReader interface
+func (r *reader) OpenFile(ra io.ReaderAt, size int64, entry core.TOCEntry) (io.Reader, error) {
 	sr := io.NewSectionReader(ra, 0, size)
 
 	// Support both gzip and zstd compressed archives
@@ -74,7 +74,7 @@ func (r *reader) OpenFile(ra io.ReaderAt, size int64, entry blobber.TOCEntry) (i
 		estargz.WithDecompressors(&zstdchunked.Decompressor{}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", blobber.ErrInvalidArchive, err)
+		return nil, fmt.Errorf("%w: %v", core.ErrInvalidArchive, err)
 	}
 
 	fileRA, err := esr.OpenFile(entry.Name)
@@ -86,9 +86,9 @@ func (r *reader) OpenFile(ra io.ReaderAt, size int64, entry blobber.TOCEntry) (i
 	return io.NewSectionReader(fileRA, 0, entry.Size), nil
 }
 
-// convertTOCEntry converts an estargz.TOCEntry to blobber.TOCEntry.
-func convertTOCEntry(e *estargz.TOCEntry) blobber.TOCEntry {
-	return blobber.TOCEntry{
+// convertTOCEntry converts an estargz.TOCEntry to core.TOCEntry.
+func convertTOCEntry(e *estargz.TOCEntry) core.TOCEntry {
+	return core.TOCEntry{
 		Name:       e.Name,
 		Type:       e.Type,
 		Size:       e.Size,

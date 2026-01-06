@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 const osWindows = "windows"
@@ -43,32 +43,32 @@ func TestValidator_ValidatePath(t *testing.T) {
 		{
 			name:    "parent traversal at start",
 			path:    "../foo",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "parent traversal in middle",
 			path:    "foo/../bar",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "parent traversal at end",
 			path:    "foo/bar/..",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "absolute path unix",
 			path:    "/etc/passwd",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "null byte",
 			path:    "foo\x00bar",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "null byte at end",
 			path:    "foo.txt\x00",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "empty path",
@@ -89,17 +89,17 @@ func TestValidator_ValidatePath(t *testing.T) {
 		{
 			name:    "backslash traversal at start",
 			path:    "..\\foo",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "backslash traversal in middle",
 			path:    "foo\\..\\bar",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "mixed slash traversal",
 			path:    "foo/..\\bar",
-			wantErr: blobber.ErrPathTraversal,
+			wantErr: core.ErrPathTraversal,
 		},
 	}
 
@@ -113,22 +113,22 @@ func TestValidator_ValidatePath(t *testing.T) {
 			{
 				name:    "windows drive letter",
 				path:    "C:\\Windows\\System32",
-				wantErr: blobber.ErrPathTraversal,
+				wantErr: core.ErrPathTraversal,
 			},
 			{
 				name:    "windows drive letter lowercase",
 				path:    "c:\\temp\\file.txt",
-				wantErr: blobber.ErrPathTraversal,
+				wantErr: core.ErrPathTraversal,
 			},
 			{
 				name:    "windows UNC path",
 				path:    "\\\\server\\share\\file.txt",
-				wantErr: blobber.ErrPathTraversal,
+				wantErr: core.ErrPathTraversal,
 			},
 			{
 				name:    "windows drive relative",
 				path:    "C:relative\\path",
-				wantErr: blobber.ErrPathTraversal,
+				wantErr: core.ErrPathTraversal,
 			},
 		}
 		tests = append(tests, windowsTests...)
@@ -155,28 +155,28 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 	tests := []struct {
 		name    string
 		destDir string
-		entries []blobber.TOCEntry
-		limits  blobber.ExtractLimits
+		entries []core.TOCEntry
+		limits  core.ExtractLimits
 		wantErr error
 	}{
 		{
 			name:    "valid extraction no limits",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 100},
 				{Name: "dir/file2.txt", Type: "reg", Size: 200},
 			},
-			limits:  blobber.ExtractLimits{},
+			limits:  core.ExtractLimits{},
 			wantErr: nil,
 		},
 		{
 			name:    "valid extraction within limits",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 100},
 				{Name: "file2.txt", Type: "reg", Size: 200},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFiles:     10,
 				MaxTotalSize: 1000,
 				MaxFileSize:  500,
@@ -186,68 +186,68 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 		{
 			name:    "exceeds max files",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 100},
 				{Name: "file2.txt", Type: "reg", Size: 100},
 				{Name: "file3.txt", Type: "reg", Size: 100},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFiles: 2,
 			},
-			wantErr: blobber.ErrExtractLimits,
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "exceeds max total size",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 500},
 				{Name: "file2.txt", Type: "reg", Size: 600},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxTotalSize: 1000,
 			},
-			wantErr: blobber.ErrExtractLimits,
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "exceeds max file size",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 100},
 				{Name: "large.bin", Type: "reg", Size: 1000},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFileSize: 500,
 			},
-			wantErr: blobber.ErrExtractLimits,
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "path traversal in entry",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "../escape.txt", Type: "reg", Size: 100},
 			},
-			limits:  blobber.ExtractLimits{},
-			wantErr: blobber.ErrPathTraversal,
+			limits:  core.ExtractLimits{},
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "absolute path in entry",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "/etc/passwd", Type: "reg", Size: 100},
 			},
-			limits:  blobber.ExtractLimits{},
-			wantErr: blobber.ErrPathTraversal,
+			limits:  core.ExtractLimits{},
+			wantErr: core.ErrPathTraversal,
 		},
 		{
 			name:    "directories not counted in file limit",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "dir1", Type: "dir", Size: 0},
 				{Name: "dir2", Type: "dir", Size: 0},
 				{Name: "dir3", Type: "dir", Size: 0},
 				{Name: "file1.txt", Type: "reg", Size: 100},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFiles: 2,
 			},
 			wantErr: nil,
@@ -255,12 +255,12 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 		{
 			name:    "symlinks not counted in file limit",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "link1", Type: "symlink", LinkName: "file1.txt"},
 				{Name: "link2", Type: "symlink", LinkName: "file1.txt"},
 				{Name: "file1.txt", Type: "reg", Size: 100},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFiles: 2,
 			},
 			wantErr: nil,
@@ -268,48 +268,48 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 		{
 			name:    "empty entries",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{},
-			limits:  blobber.ExtractLimits{},
+			entries: []core.TOCEntry{},
+			limits:  core.ExtractLimits{},
 			wantErr: nil,
 		},
 		{
 			name:    "negative size rejected",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: -100},
 			},
-			limits:  blobber.ExtractLimits{},
-			wantErr: blobber.ErrExtractLimits,
+			limits:  core.ExtractLimits{},
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "size overflow rejected",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: math.MaxInt64},
 				{Name: "file2.txt", Type: "reg", Size: 1},
 			},
-			limits:  blobber.ExtractLimits{},
-			wantErr: blobber.ErrExtractLimits,
+			limits:  core.ExtractLimits{},
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "large sizes within int64 range",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: math.MaxInt64 / 2},
 				{Name: "file2.txt", Type: "reg", Size: math.MaxInt64 / 2},
 			},
-			limits:  blobber.ExtractLimits{},
+			limits:  core.ExtractLimits{},
 			wantErr: nil,
 		},
 		// Boundary condition tests - exactly at limit should pass
 		{
 			name:    "exactly at max files limit",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 100},
 				{Name: "file2.txt", Type: "reg", Size: 100},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFiles: 2,
 			},
 			wantErr: nil,
@@ -317,11 +317,11 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 		{
 			name:    "exactly at max total size limit",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 500},
 				{Name: "file2.txt", Type: "reg", Size: 500},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxTotalSize: 1000,
 			},
 			wantErr: nil,
@@ -329,10 +329,10 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 		{
 			name:    "exactly at max file size limit",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 500},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFileSize: 500,
 			},
 			wantErr: nil,
@@ -340,38 +340,38 @@ func TestValidator_ValidateExtraction(t *testing.T) {
 		{
 			name:    "one over max files limit",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 100},
 				{Name: "file2.txt", Type: "reg", Size: 100},
 				{Name: "file3.txt", Type: "reg", Size: 100},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFiles: 2,
 			},
-			wantErr: blobber.ErrExtractLimits,
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "one byte over max total size",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 500},
 				{Name: "file2.txt", Type: "reg", Size: 501},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxTotalSize: 1000,
 			},
-			wantErr: blobber.ErrExtractLimits,
+			wantErr: core.ErrExtractLimits,
 		},
 		{
 			name:    "one byte over max file size",
 			destDir: "/tmp/extract",
-			entries: []blobber.TOCEntry{
+			entries: []core.TOCEntry{
 				{Name: "file1.txt", Type: "reg", Size: 501},
 			},
-			limits: blobber.ExtractLimits{
+			limits: core.ExtractLimits{
 				MaxFileSize: 500,
 			},
-			wantErr: blobber.ErrExtractLimits,
+			wantErr: core.ErrExtractLimits,
 		},
 	}
 
@@ -426,14 +426,14 @@ func TestValidator_ValidateSymlink(t *testing.T) {
 			destDir:  "/tmp/extract",
 			linkPath: "link",
 			target:   "../escape.txt",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "relative symlink escapes via deep traversal",
 			destDir:  "/tmp/extract",
 			linkPath: "dir/link",
 			target:   "../../escape.txt",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "absolute symlink within destDir",
@@ -461,7 +461,7 @@ func TestValidator_ValidateSymlink(t *testing.T) {
 			destDir:  "/tmp/extract",
 			linkPath: "link",
 			target:   "/../../../etc/passwd",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "absolute symlink to deeply nested path",
@@ -475,28 +475,28 @@ func TestValidator_ValidateSymlink(t *testing.T) {
 			destDir:  "/tmp/extract",
 			linkPath: "../escape/link",
 			target:   "file.txt",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "invalid linkPath absolute",
 			destDir:  "/tmp/extract",
 			linkPath: "/etc/link",
 			target:   "file.txt",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "null byte in target",
 			destDir:  "/tmp/extract",
 			linkPath: "link",
 			target:   "file\x00.txt",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "null byte in linkPath",
 			destDir:  "/tmp/extract",
 			linkPath: "link\x00name",
 			target:   "file.txt",
-			wantErr:  blobber.ErrPathTraversal,
+			wantErr:  core.ErrPathTraversal,
 		},
 	}
 
@@ -514,28 +514,28 @@ func TestValidator_ValidateSymlink(t *testing.T) {
 				destDir:  "C:\\extract",
 				linkPath: "link",
 				target:   "C:\\Windows\\System32",
-				wantErr:  blobber.ErrPathTraversal,
+				wantErr:  core.ErrPathTraversal,
 			},
 			{
 				name:     "windows UNC target",
 				destDir:  "C:\\extract",
 				linkPath: "link",
 				target:   "\\\\server\\share",
-				wantErr:  blobber.ErrPathTraversal,
+				wantErr:  core.ErrPathTraversal,
 			},
 			{
 				name:     "windows volume in linkPath",
 				destDir:  "C:\\extract",
 				linkPath: "D:\\different\\link",
 				target:   "file.txt",
-				wantErr:  blobber.ErrPathTraversal,
+				wantErr:  core.ErrPathTraversal,
 			},
 			{
 				name:     "windows drive-relative target",
 				destDir:  "C:\\extract",
 				linkPath: "link",
 				target:   "C:relative\\path",
-				wantErr:  blobber.ErrPathTraversal,
+				wantErr:  core.ErrPathTraversal,
 			},
 		}
 		tests = append(tests, windowsTests...)

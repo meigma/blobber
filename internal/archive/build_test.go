@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 func TestDigestingWriter(t *testing.T) {
@@ -64,7 +64,9 @@ func TestDigestingWriter(t *testing.T) {
 		assert.Equal(t, int64(len(chunk1)+len(chunk2)), dw.Size())
 
 		// Digest should be of combined data
-		combined := append(chunk1, chunk2...)
+		combined := make([]byte, 0, len(chunk1)+len(chunk2))
+		combined = append(combined, chunk1...)
+		combined = append(combined, chunk2...)
 		expected := digest.FromBytes(combined)
 		assert.Equal(t, expected, dw.Digest())
 	})
@@ -88,7 +90,7 @@ func TestBuild(t *testing.T) {
 	tests := []struct {
 		name        string
 		fs          fstest.MapFS
-		compression blobber.Compression
+		compression core.Compression
 		wantErr     bool
 	}{
 		{
@@ -99,7 +101,7 @@ func TestBuild(t *testing.T) {
 					Mode: 0o644,
 				},
 			},
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 			wantErr:     false,
 		},
 		{
@@ -108,13 +110,13 @@ func TestBuild(t *testing.T) {
 				"dir":          &fstest.MapFile{Mode: 0o755 | fs.ModeDir},
 				"dir/file.txt": &fstest.MapFile{Data: []byte("content"), Mode: 0o644},
 			},
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 			wantErr:     false,
 		},
 		{
 			name:        "empty filesystem",
 			fs:          fstest.MapFS{},
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 			wantErr:     false,
 		},
 		{
@@ -124,7 +126,7 @@ func TestBuild(t *testing.T) {
 				"b.txt": &fstest.MapFile{Data: []byte("bbb"), Mode: 0o644},
 				"c.txt": &fstest.MapFile{Data: []byte("ccc"), Mode: 0o644},
 			},
-			compression: blobber.ZstdCompression(),
+			compression: core.ZstdCompression(),
 			wantErr:     false,
 		},
 	}
@@ -177,7 +179,7 @@ func TestBuild_ContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	builder := NewBuilder(nil)
-	_, err := builder.Build(ctx, testFS, blobber.GzipCompression())
+	_, err := builder.Build(ctx, testFS, core.GzipCompression())
 
 	assert.Error(t, err, "Build() should return error when context is canceled")
 }
@@ -187,12 +189,12 @@ func TestBuild_DiffIDMatchesDecompressedBlob(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		compression blobber.Compression
+		compression core.Compression
 		decompress  func([]byte) ([]byte, error)
 	}{
 		{
 			name:        "gzip",
-			compression: blobber.GzipCompression(),
+			compression: core.GzipCompression(),
 			decompress: func(data []byte) ([]byte, error) {
 				// estargz uses multiple concatenated gzip streams for lazy loading.
 				// We need to read all streams to get the complete tar.
@@ -217,7 +219,7 @@ func TestBuild_DiffIDMatchesDecompressedBlob(t *testing.T) {
 		},
 		{
 			name:        "zstd",
-			compression: blobber.ZstdCompression(),
+			compression: core.ZstdCompression(),
 			decompress: func(data []byte) ([]byte, error) {
 				zr, err := zstd.NewReader(bytes.NewReader(data))
 				if err != nil {
@@ -271,7 +273,7 @@ func TestBuild_RoundTrip(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -310,7 +312,7 @@ func TestBuild_TempFileCleanup(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 
 	// Drain blob before closing - estargz uses io.Pipe internally
@@ -347,7 +349,7 @@ func TestBuild_WithSymlinks(t *testing.T) {
 
 	// Build using OSFS (which supports symlinks)
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), OSFS(tmpDir), blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), OSFS(tmpDir), core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -384,7 +386,7 @@ func TestBuild_SymlinkWithoutLstatFS(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 
 	if err == nil {
 		// Drain blob to avoid goroutine leak
@@ -417,7 +419,7 @@ func TestBuild_EmptyFile(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -450,7 +452,7 @@ func TestBuild_SpecialCharacters(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -496,7 +498,7 @@ func TestBuild_DeeplyNested(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 

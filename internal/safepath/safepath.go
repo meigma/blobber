@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 // Compile-time interface implementation check.
-var _ blobber.PathValidator = (*Validator)(nil)
+var _ core.PathValidator = (*Validator)(nil)
 
 // Validator implements blobber.PathValidator.
 type Validator struct{}
@@ -27,25 +27,25 @@ func NewValidator() *Validator {
 // ValidatePath checks if a path is safe (no traversal, valid characters, no volume names).
 func (v *Validator) ValidatePath(path string) error {
 	if containsNull(path) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	if hasVolumeName(path) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	if isAbsolute(path) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	if containsTraversal(path) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	return nil
 }
 
 // ValidateExtraction checks if extracting the given entries to destDir is safe.
-func (v *Validator) ValidateExtraction(destDir string, entries []blobber.TOCEntry, limits blobber.ExtractLimits) error {
+func (v *Validator) ValidateExtraction(destDir string, entries []core.TOCEntry, limits core.ExtractLimits) error {
 	absDestDir, err := filepath.Abs(destDir)
 	if err != nil {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 
 	var totalSize int64
@@ -71,13 +71,13 @@ func (v *Validator) ValidateExtraction(destDir string, entries []blobber.TOCEntr
 }
 
 // validateEntry checks that a single entry's path is safe.
-func (v *Validator) validateEntry(absDestDir string, entry *blobber.TOCEntry) error {
+func (v *Validator) validateEntry(absDestDir string, entry *core.TOCEntry) error {
 	if err := v.ValidatePath(entry.Name); err != nil {
 		return err
 	}
 	resolved := filepath.Join(absDestDir, entry.Name)
 	if !isWithinDir(resolved, absDestDir) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	return nil
 }
@@ -85,10 +85,10 @@ func (v *Validator) validateEntry(absDestDir string, entry *blobber.TOCEntry) er
 // validateFileSize checks a single file's size against limits.
 func validateFileSize(size, maxFileSize int64) error {
 	if size < 0 {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	if maxFileSize > 0 && size > maxFileSize {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	return nil
 }
@@ -96,18 +96,18 @@ func validateFileSize(size, maxFileSize int64) error {
 // addSize safely adds a size to a running total, checking for overflow.
 func addSize(total, size int64) (int64, error) {
 	if total > math.MaxInt64-size {
-		return 0, blobber.ErrExtractLimits
+		return 0, core.ErrExtractLimits
 	}
 	return total + size, nil
 }
 
 // validateTotals checks aggregate limits.
-func validateTotals(fileCount int, totalSize int64, limits blobber.ExtractLimits) error {
+func validateTotals(fileCount int, totalSize int64, limits core.ExtractLimits) error {
 	if limits.MaxFiles > 0 && fileCount > limits.MaxFiles {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	if limits.MaxTotalSize > 0 && totalSize > limits.MaxTotalSize {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	return nil
 }
@@ -130,12 +130,12 @@ func (v *Validator) ValidateSymlink(destDir, linkPath, target string) error {
 
 	// Check target for invalid characters.
 	if containsNull(target) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 
 	absDestDir, err := filepath.Abs(destDir)
 	if err != nil {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 
 	// Build the target path to validate.
@@ -143,7 +143,7 @@ func (v *Validator) ValidateSymlink(destDir, linkPath, target string) error {
 	if filepath.IsAbs(target) {
 		// Reject absolute targets with volume/UNC prefix.
 		if hasVolumeName(target) {
-			return blobber.ErrPathTraversal
+			return core.ErrPathTraversal
 		}
 		// Absolute targets are treated as relative to destDir (chroot-like).
 		// Strip leading separators to make it relative.
@@ -160,7 +160,7 @@ func (v *Validator) ValidateSymlink(destDir, linkPath, target string) error {
 
 	// Check that the resolved target stays within destDir.
 	if !isWithinDir(targetPath, absDestDir) {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	return nil
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/opencontainers/go-digest"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 // digestingWriter computes digest and size while writing.
@@ -43,9 +43,8 @@ func (d *digestingWriter) Write(p []byte) (int, error) {
 func (d *digestingWriter) Digest() digest.Digest { return d.digester.Digest() }
 func (d *digestingWriter) Size() int64           { return d.size }
 
-
 // Compile-time interface implementation check.
-var _ blobber.ArchiveBuilder = (*builder)(nil)
+var _ core.ArchiveBuilder = (*builder)(nil)
 
 // builder implements blobber.ArchiveBuilder using estargz.
 type builder struct {
@@ -66,7 +65,7 @@ func NewBuilder(logger *slog.Logger) *builder {
 // The tar data is streamed through a pipe to avoid buffering the uncompressed
 // archive. The compressed output is written to a temporary file while computing
 // the blob digest and size for efficient streaming push.
-func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Compression) (*blobber.BuildResult, error) {
+func (b *builder) Build(ctx context.Context, src fs.FS, compression core.Compression) (*core.BuildResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -132,7 +131,7 @@ func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Comp
 		return nil, fmt.Errorf("seek temp file: %w", err)
 	}
 
-	return &blobber.BuildResult{
+	return &core.BuildResult{
 		Blob: &tempFileReader{
 			File:   esgzFile,
 			path:   esgzPath,

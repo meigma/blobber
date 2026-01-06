@@ -22,11 +22,11 @@ import (
 	"oras.land/oras-go/v2/registry/remote/credentials"
 	"oras.land/oras-go/v2/registry/remote/retry"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 // Compile-time interface implementation check.
-var _ blobber.Registry = (*orasRegistry)(nil)
+var _ core.Registry = (*orasRegistry)(nil)
 
 // Option configures an orasRegistry.
 type Option func(*orasRegistry)
@@ -54,7 +54,9 @@ func New(opts ...Option) *orasRegistry {
 //
 // The opts.BlobDigest and opts.BlobSize fields are required for streaming push.
 // These are computed during archive build to avoid loading the entire blob into memory.
-func (r *orasRegistry) Push(ctx context.Context, ref string, layer io.Reader, opts blobber.RegistryPushOptions) (string, error) {
+//
+//nolint:gocyclo // Registry push has multiple required steps that cannot be easily decomposed
+func (r *orasRegistry) Push(ctx context.Context, ref string, layer io.Reader, opts *core.RegistryPushOptions) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -76,7 +78,7 @@ func (r *orasRegistry) Push(ctx context.Context, ref string, layer io.Reader, op
 
 	parsedRef, err := registry.ParseReference(ref)
 	if err != nil {
-		return "", blobber.ErrInvalidRef
+		return "", core.ErrInvalidRef
 	}
 
 	repo, err := r.newRepository(parsedRef)
@@ -189,7 +191,7 @@ func (r *orasRegistry) Pull(ctx context.Context, ref string) (io.ReadCloser, int
 
 	parsedRef, err := registry.ParseReference(ref)
 	if err != nil {
-		return nil, 0, blobber.ErrInvalidRef
+		return nil, 0, core.ErrInvalidRef
 	}
 
 	repo, err := r.newRepository(parsedRef)
@@ -201,7 +203,7 @@ func (r *orasRegistry) Pull(ctx context.Context, ref string) (io.ReadCloser, int
 	layerDesc, err := r.resolveLayerDescriptor(ctx, repo, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
-			return nil, 0, fmt.Errorf("%s: %w: %w", ref, blobber.ErrInvalidArchive, err)
+			return nil, 0, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
 		}
 		return nil, 0, err
 	}
@@ -217,6 +219,8 @@ func (r *orasRegistry) Pull(ctx context.Context, ref string) (io.ReadCloser, int
 
 // PullRange fetches a byte range from the layer blob.
 // Used for selective file retrieval from eStargz.
+//
+//nolint:gocyclo // Range request has multiple validation and response handling paths
 func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length int64) (io.ReadCloser, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -236,7 +240,7 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 
 	parsedRef, err := registry.ParseReference(ref)
 	if err != nil {
-		return nil, blobber.ErrInvalidRef
+		return nil, core.ErrInvalidRef
 	}
 
 	repo, err := r.newRepository(parsedRef)
@@ -248,7 +252,7 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 	layerDesc, err := r.resolveLayerDescriptor(ctx, repo, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
-			return nil, fmt.Errorf("%s: %w: %w", ref, blobber.ErrInvalidArchive, err)
+			return nil, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
 		}
 		return nil, err
 	}
@@ -289,10 +293,10 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 		return nil, ErrRangeNotSupported
 	case http.StatusUnauthorized, http.StatusForbidden:
 		resp.Body.Close()
-		return nil, blobber.ErrUnauthorized
+		return nil, core.ErrUnauthorized
 	case http.StatusNotFound:
 		resp.Body.Close()
-		return nil, blobber.ErrNotFound
+		return nil, core.ErrNotFound
 	default:
 		resp.Body.Close()
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -373,7 +377,7 @@ func (r *orasRegistry) resolveLayerDescriptor(ctx context.Context, repo *remote.
 	}
 
 	if len(manifest.Layers) == 0 {
-		return ocispec.Descriptor{}, blobber.ErrNotFound
+		return ocispec.Descriptor{}, core.ErrNotFound
 	}
 
 	if len(manifest.Layers) > 1 {
@@ -393,7 +397,7 @@ func (r *orasRegistry) resolveFromIndex(ctx context.Context, repo *remote.Reposi
 	}
 
 	if len(index.Manifests) == 0 {
-		return ocispec.Descriptor{}, blobber.ErrNotFound
+		return ocispec.Descriptor{}, core.ErrNotFound
 	}
 
 	// Find a suitable manifest - prefer current runtime platform.
@@ -423,7 +427,7 @@ func (r *orasRegistry) resolveFromIndex(ctx context.Context, repo *remote.Reposi
 	}
 
 	if len(manifest.Layers) == 0 {
-		return ocispec.Descriptor{}, blobber.ErrNotFound
+		return ocispec.Descriptor{}, core.ErrNotFound
 	}
 
 	if len(manifest.Layers) > 1 {

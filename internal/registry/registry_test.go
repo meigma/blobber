@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 func TestNew(t *testing.T) {
@@ -77,7 +77,7 @@ func TestOrasRegistry_InterfaceCompliance(t *testing.T) {
 	t.Parallel()
 
 	// This test verifies the compile-time interface check works.
-	// The actual check is: var _ blobber.Registry = (*orasRegistry)(nil)
+	// The actual check is: var _ core.Registry = (*orasRegistry)(nil)
 	// If the interface isn't satisfied, the code won't compile.
 	r := New()
 	assert.NotNil(t, r)
@@ -224,13 +224,13 @@ func TestPush_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
 		ref     string
-		opts    blobber.RegistryPushOptions
+		opts    *core.RegistryPushOptions
 		wantErr string
 	}{
 		{
 			name: "missing DiffID",
 			ref:  "localhost:5000/test/repo:tag",
-			opts: blobber.RegistryPushOptions{
+			opts: &core.RegistryPushOptions{
 				BlobDigest: "sha256:abc123",
 				BlobSize:   100,
 			},
@@ -239,7 +239,7 @@ func TestPush_Validation(t *testing.T) {
 		{
 			name: "missing BlobDigest",
 			ref:  "localhost:5000/test/repo:tag",
-			opts: blobber.RegistryPushOptions{
+			opts: &core.RegistryPushOptions{
 				DiffID:   "sha256:abc123",
 				BlobSize: 100,
 			},
@@ -248,7 +248,7 @@ func TestPush_Validation(t *testing.T) {
 		{
 			name: "missing BlobSize",
 			ref:  "localhost:5000/test/repo:tag",
-			opts: blobber.RegistryPushOptions{
+			opts: &core.RegistryPushOptions{
 				DiffID:     "sha256:abc123",
 				BlobDigest: "sha256:abc123",
 			},
@@ -257,13 +257,13 @@ func TestPush_Validation(t *testing.T) {
 		{
 			name:    "missing all required fields",
 			ref:     "localhost:5000/test/repo:tag",
-			opts:    blobber.RegistryPushOptions{},
+			opts:    &core.RegistryPushOptions{},
 			wantErr: "DiffID, BlobDigest, BlobSize",
 		},
 		{
 			name: "invalid reference",
 			ref:  "invalid ref with spaces",
-			opts: blobber.RegistryPushOptions{
+			opts: &core.RegistryPushOptions{
 				DiffID:     "sha256:abc123",
 				BlobDigest: "sha256:abc123",
 				BlobSize:   100,
@@ -291,7 +291,7 @@ func TestPush_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	opts := blobber.RegistryPushOptions{
+	opts := &core.RegistryPushOptions{
 		DiffID:     "sha256:abc123",
 		BlobDigest: "sha256:abc123",
 		BlobSize:   100,
@@ -315,12 +315,12 @@ func TestPull_Validation(t *testing.T) {
 		{
 			name:    "invalid reference",
 			ref:     "invalid ref with spaces",
-			wantErr: blobber.ErrInvalidRef,
+			wantErr: core.ErrInvalidRef,
 		},
 		{
 			name:    "empty reference",
 			ref:     "",
-			wantErr: blobber.ErrInvalidRef,
+			wantErr: core.ErrInvalidRef,
 		},
 	}
 
@@ -443,7 +443,7 @@ func TestPull_NotFound(t *testing.T) {
 
 	_, _, err := r.Pull(context.Background(), ref)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, blobber.ErrNotFound, "expected ErrNotFound, got: %v", err)
+	assert.ErrorIs(t, err, core.ErrNotFound, "expected ErrNotFound, got: %v", err)
 }
 
 func TestPull_Unauthorized(t *testing.T) {
@@ -467,7 +467,7 @@ func TestPull_Unauthorized(t *testing.T) {
 
 	_, _, err := r.Pull(context.Background(), ref)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, blobber.ErrUnauthorized, "expected ErrUnauthorized, got: %v", err)
+	assert.ErrorIs(t, err, core.ErrUnauthorized, "expected ErrUnauthorized, got: %v", err)
 }
 
 func TestPull_MultipleLayers(t *testing.T) {
@@ -518,7 +518,7 @@ func TestPull_MultipleLayers(t *testing.T) {
 	_, _, err = r.Pull(context.Background(), ref)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMultipleLayers, "expected ErrMultipleLayers")
-	assert.ErrorIs(t, err, blobber.ErrInvalidArchive, "expected ErrInvalidArchive")
+	assert.ErrorIs(t, err, core.ErrInvalidArchive, "expected ErrInvalidArchive")
 }
 
 func TestPull_EmptyManifest(t *testing.T) {
@@ -557,7 +557,7 @@ func TestPull_EmptyManifest(t *testing.T) {
 
 	_, _, err = r.Pull(context.Background(), ref)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, blobber.ErrNotFound, "expected ErrNotFound")
+	assert.ErrorIs(t, err, core.ErrNotFound, "expected ErrNotFound")
 }
 
 func TestPullRange_WithMockRegistry(t *testing.T) {
@@ -926,5 +926,5 @@ func TestPull_EmptyIndex(t *testing.T) {
 
 	_, _, err = r.Pull(context.Background(), ref)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, blobber.ErrNotFound, "expected ErrNotFound")
+	assert.ErrorIs(t, err, core.ErrNotFound, "expected ErrNotFound")
 }

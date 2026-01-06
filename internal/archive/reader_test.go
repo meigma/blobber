@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 func TestReader_ReadTOC(t *testing.T) {
@@ -26,7 +26,7 @@ func TestReader_ReadTOC(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -38,7 +38,7 @@ func TestReader_ReadTOC(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify entries
-	entryMap := make(map[string]blobber.TOCEntry)
+	entryMap := make(map[string]core.TOCEntry)
 	for _, e := range toc.Entries {
 		entryMap[e.Name] = e
 	}
@@ -66,7 +66,7 @@ func TestReader_ReadTOC_Zstd(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.ZstdCompression())
+	result, err := builder.Build(context.Background(), testFS, core.ZstdCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -89,7 +89,7 @@ func TestReader_ReadTOC_InvalidArchive(t *testing.T) {
 	invalidData := []byte("this is not a valid eStargz archive")
 	_, err := reader.ReadTOC(bytes.NewReader(invalidData), int64(len(invalidData)))
 
-	assert.ErrorIs(t, err, blobber.ErrInvalidArchive)
+	assert.ErrorIs(t, err, core.ErrInvalidArchive)
 }
 
 func TestReader_OpenFile(t *testing.T) {
@@ -101,7 +101,7 @@ func TestReader_OpenFile(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -117,7 +117,7 @@ func TestReader_OpenFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Find test.txt entry
-	var entry blobber.TOCEntry
+	var entry core.TOCEntry
 	for _, e := range toc.Entries {
 		if e.Name == "test.txt" {
 			entry = e
@@ -146,7 +146,7 @@ func TestReader_OpenFile_Zstd(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.ZstdCompression())
+	result, err := builder.Build(context.Background(), testFS, core.ZstdCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -160,7 +160,7 @@ func TestReader_OpenFile_Zstd(t *testing.T) {
 	toc, err := reader.ReadTOC(ra, size)
 	require.NoError(t, err)
 
-	var entry blobber.TOCEntry
+	var entry core.TOCEntry
 	for _, e := range toc.Entries {
 		if e.Name == "zstd.txt" {
 			entry = e
@@ -185,7 +185,7 @@ func TestReader_OpenFile_Missing(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, core.GzipCompression())
 	require.NoError(t, err)
 	defer result.Blob.Close()
 
@@ -197,7 +197,7 @@ func TestReader_OpenFile_Missing(t *testing.T) {
 	size := int64(len(data))
 
 	// Try to open a non-existent file
-	missingEntry := blobber.TOCEntry{
+	missingEntry := core.TOCEntry{
 		Name: "does-not-exist.txt",
 		Type: "reg",
 		Size: 100,

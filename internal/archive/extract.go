@@ -15,7 +15,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 // Extract extracts an eStargz blob to the destination directory.
@@ -26,11 +26,11 @@ import (
 //
 // Note: This implementation uses best-effort TOCTOU prevention via Lstat
 // checks and O_EXCL flags. Full openat(2) safety is not yet implemented.
-func Extract(ctx context.Context, r io.Reader, destDir string, validator blobber.PathValidator, limits blobber.ExtractLimits) error {
+func Extract(ctx context.Context, r io.Reader, destDir string, validator core.PathValidator, limits core.ExtractLimits) error {
 	// Auto-detect compression
 	decompReader, err := detectAndDecompress(r)
 	if err != nil {
-		return fmt.Errorf("%w: %v", blobber.ErrInvalidArchive, err)
+		return fmt.Errorf("%w: %v", core.ErrInvalidArchive, err)
 	}
 	defer decompReader.Close()
 
@@ -49,7 +49,7 @@ func Extract(ctx context.Context, r io.Reader, destDir string, validator blobber
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("%w: %v", blobber.ErrInvalidArchive, err)
+			return fmt.Errorf("%w: %v", core.ErrInvalidArchive, err)
 		}
 
 		if err := processEntry(ctx, destDir, header, tr, validator, state); err != nil {
@@ -62,13 +62,13 @@ func Extract(ctx context.Context, r io.Reader, destDir string, validator blobber
 
 // extractState tracks extraction progress for limit enforcement.
 type extractState struct {
-	limits    blobber.ExtractLimits
+	limits    core.ExtractLimits
 	fileCount int
 	totalSize int64
 }
 
 // processEntry handles a single tar entry.
-func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader, validator blobber.PathValidator, state *extractState) error {
+func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader, validator core.PathValidator, state *extractState) error {
 	// Skip TOC entry (eStargz stores TOC as stargz.index.json)
 	if header.Name == "stargz.index.json" {
 		return nil
@@ -98,7 +98,7 @@ func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *t
 		}
 		return extractSymlink(destDir, header)
 	case tar.TypeLink, tar.TypeChar, tar.TypeBlock, tar.TypeFifo:
-		return fmt.Errorf("%w: unsupported entry type %q for %s", blobber.ErrInvalidArchive, header.Typeflag, header.Name)
+		return fmt.Errorf("%w: unsupported entry type %q for %s", core.ErrInvalidArchive, header.Typeflag, header.Name)
 	}
 	return nil
 }
@@ -107,24 +107,24 @@ func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *t
 func checkLimits(header *tar.Header, state *extractState) error {
 	// Reject negative sizes (malformed tar header)
 	if header.Size < 0 {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 
 	state.fileCount++
 	if state.limits.MaxFiles > 0 && state.fileCount > state.limits.MaxFiles {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	if state.limits.MaxFileSize > 0 && header.Size > state.limits.MaxFileSize {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 
 	// Check for overflow before adding
 	if state.totalSize > math.MaxInt64-header.Size {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	state.totalSize += header.Size
 	if state.limits.MaxTotalSize > 0 && state.totalSize > state.limits.MaxTotalSize {
-		return blobber.ErrExtractLimits
+		return core.ErrExtractLimits
 	}
 	return nil
 }
@@ -252,7 +252,7 @@ func validateNotSymlink(path string) error {
 		return err
 	}
 	if info.Mode()&fs.ModeSymlink != 0 {
-		return blobber.ErrPathTraversal
+		return core.ErrPathTraversal
 	}
 	return nil
 }

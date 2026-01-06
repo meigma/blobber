@@ -140,7 +140,7 @@ func (img *Image) List() ([]FileEntry, error) {
 
 	// Sort by path for consistent output
 	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].path < entries[j].path
+		return entries[i].FilePath < entries[j].FilePath
 	})
 
 	return entries, nil
@@ -239,9 +239,9 @@ func (img *Image) walkEntry(e *estargz.TOCEntry, fn fs.WalkDirFunc) error {
 // tocEntryToFileEntry converts an estargz.TOCEntry to a FileEntry.
 func tocEntryToFileEntry(e *estargz.TOCEntry) FileEntry {
 	return FileEntry{
-		path: e.Name,
-		size: e.Size,
+		FilePath: e.Name,
+		FileSize: e.Size,
 		//nolint:gosec // G115: Mode from trusted estargz TOC entry
-		mode: fs.FileMode(e.Mode),
+		FileMode: fs.FileMode(e.Mode),
 	}
 }

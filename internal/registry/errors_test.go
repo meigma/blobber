@@ -11,7 +11,7 @@ import (
 	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry/remote/errcode"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/core"
 )
 
 func TestMapError(t *testing.T) {
@@ -35,7 +35,7 @@ func TestMapError(t *testing.T) {
 				URL:        &url.URL{Path: "/v2/test/manifests/latest"},
 				StatusCode: http.StatusUnauthorized,
 			},
-			want: blobber.ErrUnauthorized,
+			want: core.ErrUnauthorized,
 		},
 		{
 			name: "403 status returns ErrUnauthorized",
@@ -44,7 +44,7 @@ func TestMapError(t *testing.T) {
 				URL:        &url.URL{Path: "/v2/test/manifests/latest"},
 				StatusCode: http.StatusForbidden,
 			},
-			want: blobber.ErrUnauthorized,
+			want: core.ErrUnauthorized,
 		},
 		{
 			name: "404 status returns ErrNotFound",
@@ -53,7 +53,7 @@ func TestMapError(t *testing.T) {
 				URL:        &url.URL{Path: "/v2/test/manifests/latest"},
 				StatusCode: http.StatusNotFound,
 			},
-			want: blobber.ErrNotFound,
+			want: core.ErrNotFound,
 		},
 		{
 			name: "UNAUTHORIZED error code returns ErrUnauthorized",
@@ -65,7 +65,7 @@ func TestMapError(t *testing.T) {
 					{Code: errcode.ErrorCodeUnauthorized, Message: "access denied"},
 				},
 			},
-			want: blobber.ErrUnauthorized,
+			want: core.ErrUnauthorized,
 		},
 		{
 			name: "DENIED error code returns ErrUnauthorized",
@@ -77,7 +77,7 @@ func TestMapError(t *testing.T) {
 					{Code: errcode.ErrorCodeDenied, Message: "access denied"},
 				},
 			},
-			want: blobber.ErrUnauthorized,
+			want: core.ErrUnauthorized,
 		},
 		{
 			name: "NAME_UNKNOWN error code returns ErrNotFound",
@@ -89,7 +89,7 @@ func TestMapError(t *testing.T) {
 					{Code: errcode.ErrorCodeNameUnknown, Message: "repository not found"},
 				},
 			},
-			want: blobber.ErrNotFound,
+			want: core.ErrNotFound,
 		},
 		{
 			name: "MANIFEST_UNKNOWN error code returns ErrNotFound",
@@ -101,7 +101,7 @@ func TestMapError(t *testing.T) {
 					{Code: errcode.ErrorCodeManifestUnknown, Message: "manifest not found"},
 				},
 			},
-			want: blobber.ErrNotFound,
+			want: core.ErrNotFound,
 		},
 		{
 			name: "BLOB_UNKNOWN error code returns ErrNotFound",
@@ -113,7 +113,7 @@ func TestMapError(t *testing.T) {
 					{Code: errcode.ErrorCodeBlobUnknown, Message: "blob not found"},
 				},
 			},
-			want: blobber.ErrNotFound,
+			want: core.ErrNotFound,
 		},
 		{
 			name: "unknown error code returns original error",
@@ -135,12 +135,12 @@ func TestMapError(t *testing.T) {
 		{
 			name: "errdef.ErrNotFound returns ErrNotFound",
 			err:  errdef.ErrNotFound,
-			want: blobber.ErrNotFound,
+			want: core.ErrNotFound,
 		},
 		{
 			name: "wrapped errdef.ErrNotFound returns ErrNotFound",
 			err:  fmt.Errorf("fetch failed: %w", errdef.ErrNotFound),
-			want: blobber.ErrNotFound,
+			want: core.ErrNotFound,
 		},
 	}
 
