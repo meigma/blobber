@@ -42,6 +42,16 @@ test-cover:
     go tool cover -html=coverage.out -o coverage.html
     @echo "Coverage report: coverage.html"
 
+# Run integration tests (requires Docker)
+[group('test')]
+test-integration:
+    go test -tags=integration -v -timeout=10m ./...
+
+# Run integration tests with verbose container logs
+[group('test')]
+test-integration-debug:
+    TESTCONTAINERS_DEBUG=true go test -tags=integration -v -timeout=10m ./...
+
 # ---------- Lint & Format ----------
 
 # Run golangci-lint
