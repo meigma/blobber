@@ -44,28 +44,28 @@ func (d *digestingWriter) Digest() digest.Digest { return d.digester.Digest() }
 func (d *digestingWriter) Size() int64           { return d.size }
 
 // Compile-time interface implementation check.
-var _ core.ArchiveBuilder = (*builder)(nil)
+var _ core.ArchiveBuilder = (*Builder)(nil)
 
-// builder implements blobber.ArchiveBuilder using estargz.
-type builder struct {
+// Builder creates eStargz blobs from filesystems.
+type Builder struct {
 	logger *slog.Logger
 }
 
-// NewBuilder creates a new ArchiveBuilder.
+// NewBuilder creates a new Builder.
 // If logger is nil, a no-op logger is used.
-func NewBuilder(logger *slog.Logger) *builder {
+func NewBuilder(logger *slog.Logger) *Builder {
 	if logger == nil {
 		//nolint:sloglint // DiscardHandler is intentional for no-op logging
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
-	return &builder{logger: logger}
+	return &Builder{logger: logger}
 }
 
 // Build creates an eStargz blob from the given filesystem.
 // The tar data is streamed through a pipe to avoid buffering the uncompressed
 // archive. The compressed output is written to a temporary file while computing
 // the blob digest and size for efficient streaming push.
-func (b *builder) Build(ctx context.Context, src fs.FS, compression core.Compression) (*core.BuildResult, error) {
+func (b *Builder) Build(ctx context.Context, src fs.FS, compression core.Compression) (*core.BuildResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

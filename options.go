@@ -1,8 +1,9 @@
 package blobber
 
 import (
-	"io/fs"
 	"log/slog"
+
+	"oras.land/oras-go/v2/registry/remote/credentials"
 
 	"github.com/gilmanlab/blobber/core"
 	"github.com/gilmanlab/blobber/internal/registry"
@@ -30,9 +31,7 @@ type pushConfig struct {
 
 // pullConfig holds configuration for Pull operations.
 type pullConfig struct {
-	overwrite bool
-	fileMode  fs.FileMode
-	limits    ExtractLimits
+	limits ExtractLimits
 }
 
 // WithAnnotations sets OCI annotations on the pushed image.
@@ -57,8 +56,8 @@ func WithCredentials(registryHost, username, password string) ClientOption {
 	}
 }
 
-// WithCredentialStore sets a custom credential store (ORAS credentials.Store).
-func WithCredentialStore(store any) ClientOption {
+// WithCredentialStore sets a custom credential store.
+func WithCredentialStore(store credentials.Store) ClientOption {
 	return func(c *Client) error {
 		c.credStore = store
 		return nil
@@ -69,13 +68,6 @@ func WithCredentialStore(store any) ClientOption {
 func WithExtractLimits(limits ExtractLimits) PullOption {
 	return func(c *pullConfig) {
 		c.limits = limits
-	}
-}
-
-// WithFileMode sets the file mode for extracted files.
-func WithFileMode(mode fs.FileMode) PullOption {
-	return func(c *pullConfig) {
-		c.fileMode = mode
 	}
 }
 
@@ -102,13 +94,6 @@ func WithMediaType(mt string) PushOption {
 	}
 }
 
-// WithOverwrite allows overwriting existing files during extraction.
-func WithOverwrite(overwrite bool) PullOption {
-	return func(c *pullConfig) {
-		c.overwrite = overwrite
-	}
-}
-
 // WithUserAgent sets a custom User-Agent header for registry requests.
 func WithUserAgent(ua string) ClientOption {
 	return func(c *Client) error {
@@ -118,6 +103,6 @@ func WithUserAgent(ua string) ClientOption {
 }
 
 // staticCredentials returns a credential store with a single static credential.
-func staticCredentials(registryHost, username, password string) any {
+func staticCredentials(registryHost, username, password string) credentials.Store {
 	return registry.StaticCredentials(registryHost, username, password)
 }

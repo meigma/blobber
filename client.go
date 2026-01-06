@@ -21,7 +21,7 @@ type Client struct {
 	logger    *slog.Logger
 
 	// configuration passed to registry
-	credStore any // credentials.Store from ORAS
+	credStore credentials.Store
 	plainHTTP bool
 	userAgent string
 }
@@ -52,8 +52,8 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	// Wire up default implementations
 	var regOpts []registry.Option
-	if store, ok := c.credStore.(credentials.Store); ok {
-		regOpts = append(regOpts, registry.WithCredentialStore(store))
+	if c.credStore != nil {
+		regOpts = append(regOpts, registry.WithCredentialStore(c.credStore))
 	}
 	if c.plainHTTP {
 		regOpts = append(regOpts, registry.WithPlainHTTP(true))

@@ -29,10 +29,10 @@ func (v *Validator) ValidatePath(path string) error {
 	if containsNull(path) {
 		return core.ErrPathTraversal
 	}
-	if hasVolumeName(path) {
+	if filepath.VolumeName(path) != "" {
 		return core.ErrPathTraversal
 	}
-	if isAbsolute(path) {
+	if filepath.IsAbs(path) {
 		return core.ErrPathTraversal
 	}
 	if containsTraversal(path) {
@@ -142,7 +142,7 @@ func (v *Validator) ValidateSymlink(destDir, linkPath, target string) error {
 	var targetPath string
 	if filepath.IsAbs(target) {
 		// Reject absolute targets with volume/UNC prefix.
-		if hasVolumeName(target) {
+		if filepath.VolumeName(target) != "" {
 			return core.ErrPathTraversal
 		}
 		// Absolute targets are treated as relative to destDir (chroot-like).
@@ -165,7 +165,8 @@ func (v *Validator) ValidateSymlink(destDir, linkPath, target string) error {
 	return nil
 }
 
-// isWithinDir checks if path is lexically within or equal to dir.
+// isWithinDir reports whether path is lexically within or equal to dir.
+// Both paths should be absolute and clean for reliable results.
 func isWithinDir(path, dir string) bool {
 	if path == dir {
 		return true
@@ -180,13 +181,16 @@ func isWithinDir(path, dir string) bool {
 	return strings.HasPrefix(path, dir+string(filepath.Separator))
 }
 
+// containsNull reports whether path contains a null byte.
+// Null bytes in paths are a common attack vector for path injection.
 func containsNull(path string) bool {
 	return strings.ContainsRune(path, '\x00')
 }
 
+// containsTraversal reports whether path contains ".." directory traversal.
+// It normalizes both forward and backslash separators to detect traversal
+// in mixed-separator archives (common in Windows-created archives).
 func containsTraversal(path string) bool {
-	// Normalize both forward and backslash separators to detect traversal
-	// in mixed-separator archives (common in Windows-created archives).
 	normalized := strings.ReplaceAll(path, "\\", "/")
 	for _, part := range strings.Split(normalized, "/") {
 		if part == ".." {
@@ -194,12 +198,4 @@ func containsTraversal(path string) bool {
 		}
 	}
 	return false
-}
-
-func isAbsolute(path string) bool {
-	return filepath.IsAbs(path)
-}
-
-func hasVolumeName(path string) bool {
-	return filepath.VolumeName(path) != ""
 }

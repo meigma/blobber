@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -233,8 +234,8 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 	if length <= 0 {
 		return nil, errors.New("length must be positive")
 	}
-	// Check for overflow: offset + length - 1 must not wrap around.
-	if offset > (1<<63-1)-length+1 {
+	// Ensure offset + length won't overflow int64.
+	if offset > math.MaxInt64-length {
 		return nil, errors.New("range overflow: offset + length exceeds maximum")
 	}
 

@@ -121,6 +121,8 @@ func (f FileEntry) Info() (fs.FileInfo, error) {
 }
 
 // fileInfo implements fs.FileInfo for FileEntry.
+// It wraps a FileEntry to satisfy the fs.FileInfo interface returned by
+// FileEntry.Info(), enabling FileEntry to fully implement fs.DirEntry.
 type fileInfo struct {
 	entry FileEntry
 }
@@ -128,7 +130,7 @@ type fileInfo struct {
 func (fi fileInfo) Name() string       { return fi.entry.FilePath }
 func (fi fileInfo) Size() int64        { return fi.entry.FileSize }
 func (fi fileInfo) Mode() fs.FileMode  { return fi.entry.FileMode }
-func (fi fileInfo) ModTime() time.Time { return time.Time{} } // Not tracked
+func (fi fileInfo) ModTime() time.Time { return time.Time{} }
 func (fi fileInfo) IsDir() bool        { return fi.entry.FileMode.IsDir() }
 func (fi fileInfo) Sys() any           { return nil }
 

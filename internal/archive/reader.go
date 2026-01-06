@@ -11,19 +11,19 @@ import (
 )
 
 // Compile-time interface implementation check.
-var _ core.ArchiveReader = (*reader)(nil)
+var _ core.ArchiveReader = (*Reader)(nil)
 
-// reader implements blobber.ArchiveReader using estargz.
-type reader struct{}
+// Reader reads eStargz blobs.
+type Reader struct{}
 
-// NewReader creates a new ArchiveReader.
-func NewReader() *reader {
-	return &reader{}
+// NewReader creates a new Reader.
+func NewReader() *Reader {
+	return &Reader{}
 }
 
 // ReadTOC extracts the TOC from an eStargz blob.
 // The size parameter is the total blob size (needed for footer location).
-func (r *reader) ReadTOC(ra io.ReaderAt, size int64) (*core.TOC, error) {
+func (r *Reader) ReadTOC(ra io.ReaderAt, size int64) (*core.TOC, error) {
 	sr := io.NewSectionReader(ra, 0, size)
 
 	// Support both gzip and zstd compressed archives
@@ -66,7 +66,7 @@ func (r *reader) ReadTOC(ra io.ReaderAt, size int64) (*core.TOC, error) {
 // The size parameter is the total blob size (needed for estargz.Open).
 //
 //nolint:gocritic // hugeParam: entry passed by value to match core.ArchiveReader interface
-func (r *reader) OpenFile(ra io.ReaderAt, size int64, entry core.TOCEntry) (io.Reader, error) {
+func (r *Reader) OpenFile(ra io.ReaderAt, size int64, entry core.TOCEntry) (io.Reader, error) {
 	sr := io.NewSectionReader(ra, 0, size)
 
 	// Support both gzip and zstd compressed archives
