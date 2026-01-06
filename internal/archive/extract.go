@@ -1,13 +1,258 @@
 package archive
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
+	"math"
+	"os"
+	"path/filepath"
+
+	"github.com/klauspost/compress/zstd"
 
 	"github.com/gilmanlab/blobber"
 )
 
 // Extract extracts an eStargz blob to the destination directory.
+//
+// The function auto-detects the compression format (gzip or zstd) from the
+// stream's magic bytes. It validates all paths using the provided validator
+// and enforces the extraction limits.
+//
+// Note: This implementation uses best-effort TOCTOU prevention via Lstat
+// checks and O_EXCL flags. Full openat(2) safety is not yet implemented.
 func Extract(ctx context.Context, r io.Reader, destDir string, validator blobber.PathValidator, limits blobber.ExtractLimits) error {
-	panic("not implemented")
+	// Auto-detect compression
+	decompReader, err := detectAndDecompress(r)
+	if err != nil {
+		return fmt.Errorf("%w: %v", blobber.ErrInvalidArchive, err)
+	}
+	defer decompReader.Close()
+
+	tr := tar.NewReader(decompReader)
+	state := &extractState{limits: limits}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("%w: %v", blobber.ErrInvalidArchive, err)
+		}
+
+		if err := processEntry(ctx, destDir, header, tr, validator, state); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// extractState tracks extraction progress for limit enforcement.
+type extractState struct {
+	limits    blobber.ExtractLimits
+	fileCount int
+	totalSize int64
+}
+
+// processEntry handles a single tar entry.
+func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader, validator blobber.PathValidator, state *extractState) error {
+	// Skip TOC entry (eStargz stores TOC as stargz.index.json)
+	if header.Name == "stargz.index.json" {
+		return nil
+	}
+
+	// Validate path
+	if err := validator.ValidatePath(header.Name); err != nil {
+		return err
+	}
+
+	// Check limits for regular files
+	if header.Typeflag == tar.TypeReg {
+		if err := checkLimits(header, state); err != nil {
+			return err
+		}
+	}
+
+	// Extract based on type
+	switch header.Typeflag {
+	case tar.TypeDir:
+		return extractDir(destDir, header)
+	case tar.TypeReg:
+		return extractFile(ctx, destDir, header, tr)
+	case tar.TypeSymlink:
+		if err := validator.ValidateSymlink(destDir, header.Name, header.Linkname); err != nil {
+			return err
+		}
+		return extractSymlink(destDir, header)
+	case tar.TypeLink, tar.TypeChar, tar.TypeBlock, tar.TypeFifo:
+		return fmt.Errorf("%w: unsupported entry type %q for %s", blobber.ErrInvalidArchive, header.Typeflag, header.Name)
+	}
+	return nil
+}
+
+// checkLimits verifies extraction limits for a regular file.
+func checkLimits(header *tar.Header, state *extractState) error {
+	// Reject negative sizes (malformed tar header)
+	if header.Size < 0 {
+		return blobber.ErrExtractLimits
+	}
+
+	state.fileCount++
+	if state.limits.MaxFiles > 0 && state.fileCount > state.limits.MaxFiles {
+		return blobber.ErrExtractLimits
+	}
+	if state.limits.MaxFileSize > 0 && header.Size > state.limits.MaxFileSize {
+		return blobber.ErrExtractLimits
+	}
+
+	// Check for overflow before adding
+	if state.totalSize > math.MaxInt64-header.Size {
+		return blobber.ErrExtractLimits
+	}
+	state.totalSize += header.Size
+	if state.limits.MaxTotalSize > 0 && state.totalSize > state.limits.MaxTotalSize {
+		return blobber.ErrExtractLimits
+	}
+	return nil
+}
+
+// detectAndDecompress auto-detects the compression format and returns a decompressor.
+func detectAndDecompress(r io.Reader) (io.ReadCloser, error) {
+	// Read first 4 bytes to detect format (zstd magic is 4 bytes)
+	buf := make([]byte, 4)
+	n, err := io.ReadFull(r, buf)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return nil, err
+	}
+
+	// Prepend read bytes back
+	combined := io.MultiReader(bytes.NewReader(buf[:n]), r)
+
+	// Detect format by magic bytes
+	if n >= 2 && buf[0] == 0x1f && buf[1] == 0x8b {
+		// gzip magic: 0x1f 0x8b
+		return gzip.NewReader(combined)
+	}
+	if n >= 4 && buf[0] == 0x28 && buf[1] == 0xb5 && buf[2] == 0x2f && buf[3] == 0xfd {
+		// zstd magic: 0x28 0xb5 0x2f 0xfd
+		decoder, err := zstd.NewReader(combined)
+		if err != nil {
+			return nil, err
+		}
+		return decoder.IOReadCloser(), nil
+	}
+
+	return nil, errors.New("unknown compression format")
+}
+
+// extractDir creates a directory from a tar header.
+//
+//nolint:gosec // G305: Path validated by caller via PathValidator
+func extractDir(destDir string, header *tar.Header) error {
+	fullPath := filepath.Join(destDir, header.Name)
+
+	// Best-effort TOCTOU check
+	if err := validateNotSymlink(filepath.Dir(fullPath)); err != nil {
+		return err
+	}
+
+	//nolint:gosec // G115: Mode from trusted tar header, G301: dir perms from archive
+	return os.MkdirAll(fullPath, fs.FileMode(header.Mode))
+}
+
+// extractFile extracts a regular file from a tar stream.
+//
+//nolint:gosec // G305: Path validated by caller via PathValidator
+func extractFile(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader) error {
+	fullPath := filepath.Join(destDir, header.Name)
+
+	// Best-effort TOCTOU check on parent
+	parent := filepath.Dir(fullPath)
+	if err := validateNotSymlink(parent); err != nil {
+		return err
+	}
+
+	// Create parent directories
+	if err := os.MkdirAll(parent, 0o750); err != nil {
+		return err
+	}
+
+	// Open with O_EXCL to fail if exists (prevents race with symlink creation)
+	//nolint:gosec // G304: Path validated by caller, G115: mode from tar header
+	f, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fs.FileMode(header.Mode))
+	if err != nil {
+		return err
+	}
+
+	// Copy content with context cancellation support
+	copyErr := copyWithContext(ctx, f, tr)
+	closeErr := f.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
+}
+
+// extractSymlink creates a symlink from a tar header.
+//
+//nolint:gosec // G305: Path validated by caller via PathValidator
+func extractSymlink(destDir string, header *tar.Header) error {
+	fullPath := filepath.Join(destDir, header.Name)
+
+	// Best-effort TOCTOU check on parent
+	parent := filepath.Dir(fullPath)
+	if err := validateNotSymlink(parent); err != nil {
+		return err
+	}
+
+	// Create parent directories
+	if err := os.MkdirAll(parent, 0o750); err != nil {
+		return err
+	}
+
+	// Create symlink in temp location then rename atomically.
+	// This avoids a race between Remove and Symlink where an attacker
+	// could place their own symlink in the gap.
+	tmpLink := fullPath + ".tmp"
+	_ = os.Remove(tmpLink) // Clean up any stale temp file
+
+	if err := os.Symlink(header.Linkname, tmpLink); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tmpLink, fullPath); err != nil {
+		_ = os.Remove(tmpLink) // Clean up on failure
+		return err
+	}
+
+	return nil
+}
+
+// validateNotSymlink checks that a path is not a symlink.
+// This is a best-effort TOCTOU check - not fully race-safe.
+func validateNotSymlink(path string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil // Will be created
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&fs.ModeSymlink != 0 {
+		return blobber.ErrPathTraversal
+	}
+	return nil
 }

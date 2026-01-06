@@ -1,17 +1,18 @@
 package safepath
 
 import (
-	"errors"
 	"math"
 	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/gilmanlab/blobber"
 )
 
 const osWindows = "windows"
 
-func TestValidatePath(t *testing.T) {
+func TestValidator_ValidatePath(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -139,14 +140,16 @@ func TestValidatePath(t *testing.T) {
 			t.Parallel()
 
 			err := v.ValidatePath(tt.path)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("ValidatePath(%q) = %v, want %v", tt.path, err, tt.wantErr)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr, "ValidatePath(%q)", tt.path)
+			} else {
+				assert.NoError(t, err, "ValidatePath(%q)", tt.path)
 			}
 		})
 	}
 }
 
-func TestValidateExtraction(t *testing.T) {
+func TestValidator_ValidateExtraction(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -378,14 +381,16 @@ func TestValidateExtraction(t *testing.T) {
 			t.Parallel()
 
 			err := v.ValidateExtraction(tt.destDir, tt.entries, tt.limits)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("ValidateExtraction() = %v, want %v", err, tt.wantErr)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
 }
 
-func TestValidateSymlink(t *testing.T) {
+func TestValidator_ValidateSymlink(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -542,174 +547,188 @@ func TestValidateSymlink(t *testing.T) {
 			t.Parallel()
 
 			err := v.ValidateSymlink(tt.destDir, tt.linkPath, tt.target)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("ValidateSymlink(%q, %q, %q) = %v, want %v",
-					tt.destDir, tt.linkPath, tt.target, err, tt.wantErr)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr, "ValidateSymlink(%q, %q, %q)", tt.destDir, tt.linkPath, tt.target)
+			} else {
+				assert.NoError(t, err, "ValidateSymlink(%q, %q, %q)", tt.destDir, tt.linkPath, tt.target)
 			}
 		})
 	}
 }
 
-func TestContainsNull(t *testing.T) {
+func Test_containsNull(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name string
 		path string
 		want bool
 	}{
-		{"normal", false},
-		{"with\x00null", true},
-		{"\x00start", true},
-		{"end\x00", true},
-		{"", false},
+		{"normal path", "normal", false},
+		{"null in middle", "with\x00null", true},
+		{"null at start", "\x00start", true},
+		{"null at end", "end\x00", true},
+		{"empty string", "", false},
 	}
 
 	for _, tt := range tests {
-		got := containsNull(tt.path)
-		if got != tt.want {
-			t.Errorf("containsNull(%q) = %v, want %v", tt.path, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := containsNull(tt.path)
+			assert.Equal(t, tt.want, got, "containsNull(%q)", tt.path)
+		})
 	}
 }
 
-func TestContainsTraversal(t *testing.T) {
+func Test_containsTraversal(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name string
 		path string
 		want bool
 	}{
-		{"normal/path", false},
-		{"../escape", true},
-		{"foo/../bar", true},
-		{"foo/..", true},
-		{"...", false},
-		{"foo..bar", false},
-		{"./current", false},
-		{"foo/./bar", false},
+		{"normal path", "normal/path", false},
+		{"parent at start", "../escape", true},
+		{"parent in middle", "foo/../bar", true},
+		{"parent at end", "foo/..", true},
+		{"triple dots", "...", false},
+		{"double dots in name", "foo..bar", false},
+		{"current dir prefix", "./current", false},
+		{"current dir in middle", "foo/./bar", false},
 		// Backslash separator tests (relevant for Windows or mixed-separator archives)
-		{"..\\escape", true},
-		{"foo\\..\\bar", true},
-		{"foo\\..", true},
-		{"normal\\path", false},
-		{".\\current", false},
+		{"backslash parent at start", "..\\escape", true},
+		{"backslash parent in middle", "foo\\..\\bar", true},
+		{"backslash parent at end", "foo\\..", true},
+		{"backslash normal path", "normal\\path", false},
+		{"backslash current dir", ".\\current", false},
 		// Mixed separators
-		{"foo/..\\bar", true},
-		{"foo\\../bar", true},
+		{"mixed forward-back parent", "foo/..\\bar", true},
+		{"mixed back-forward parent", "foo\\../bar", true},
 	}
 
 	for _, tt := range tests {
-		got := containsTraversal(tt.path)
-		if got != tt.want {
-			t.Errorf("containsTraversal(%q) = %v, want %v", tt.path, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := containsTraversal(tt.path)
+			assert.Equal(t, tt.want, got, "containsTraversal(%q)", tt.path)
+		})
 	}
 }
 
-func TestIsWithinDir(t *testing.T) {
+func Test_isWithinDir(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name string
 		path string
 		dir  string
 		want bool
 	}{
-		{"/tmp/extract/file.txt", "/tmp/extract", true},
-		{"/tmp/extract", "/tmp/extract", true},
-		{"/tmp/extractmore", "/tmp/extract", false},
-		{"/tmp/other", "/tmp/extract", false},
-		{"/etc/passwd", "/tmp/extract", false},
+		{"file within dir", "/tmp/extract/file.txt", "/tmp/extract", true},
+		{"dir equals path", "/tmp/extract", "/tmp/extract", true},
+		{"prefix match but different dir", "/tmp/extractmore", "/tmp/extract", false},
+		{"completely different dir", "/tmp/other", "/tmp/extract", false},
+		{"unrelated path", "/etc/passwd", "/tmp/extract", false},
 		// Root directory edge case
-		{"/etc/passwd", "/", true},
-		{"/tmp/extract/file.txt", "/", true},
-		{"/", "/", true},
+		{"any path within root", "/etc/passwd", "/", true},
+		{"nested path within root", "/tmp/extract/file.txt", "/", true},
+		{"root equals root", "/", "/", true},
 	}
 	if runtime.GOOS == osWindows {
 		windowsTests := []struct {
+			name string
 			path string
 			dir  string
 			want bool
 		}{
-			{`C:\`, `C:\`, true},
-			{`C:\Windows\System32`, `C:\`, true},
-			{`D:\Other`, `C:\`, false},
-			{`C:\Temp`, `C:\Temp`, true},
+			{"windows root equals root", `C:\`, `C:\`, true},
+			{"windows nested within root", `C:\Windows\System32`, `C:\`, true},
+			{"windows different drive", `D:\Other`, `C:\`, false},
+			{"windows dir equals path", `C:\Temp`, `C:\Temp`, true},
 		}
 		tests = append(tests, windowsTests...)
 	}
 
 	for _, tt := range tests {
-		got := isWithinDir(tt.path, tt.dir)
-		if got != tt.want {
-			t.Errorf("isWithinDir(%q, %q) = %v, want %v", tt.path, tt.dir, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isWithinDir(tt.path, tt.dir)
+			assert.Equal(t, tt.want, got, "isWithinDir(%q, %q)", tt.path, tt.dir)
+		})
 	}
 }
 
-func TestIsAbsolute(t *testing.T) {
+func Test_isAbsolute(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name string
 		path string
 		want bool
 	}{
-		{"relative/path", false},
-		{"/absolute/path", true},
-		{"./current", false},
-		{"../parent", false},
-		{"", false},
+		{"relative path", "relative/path", false},
+		{"absolute path", "/absolute/path", true},
+		{"current dir prefix", "./current", false},
+		{"parent dir prefix", "../parent", false},
+		{"empty string", "", false},
 	}
 
 	for _, tt := range tests {
-		got := isAbsolute(tt.path)
-		if got != tt.want {
-			t.Errorf("isAbsolute(%q) = %v, want %v", tt.path, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isAbsolute(tt.path)
+			assert.Equal(t, tt.want, got, "isAbsolute(%q)", tt.path)
+		})
 	}
 }
 
-func TestHasVolumeName(t *testing.T) {
+func Test_hasVolumeName(t *testing.T) {
 	t.Parallel()
 
 	// Cross-platform tests (these should behave consistently).
 	tests := []struct {
+		name string
 		path string
 		want bool
 	}{
-		{"relative/path", false},
-		{"./current", false},
-		{"", false},
+		{"relative path", "relative/path", false},
+		{"current dir prefix", "./current", false},
+		{"empty string", "", false},
 	}
 
 	// Add platform-specific expectations.
 	if runtime.GOOS == osWindows {
 		windowsTests := []struct {
+			name string
 			path string
 			want bool
 		}{
-			{"C:\\Windows", true},
-			{"c:\\temp", true},
-			{"D:", true},
-			{"\\\\server\\share", true},
-			{"/unix/style", false},
+			{"windows drive uppercase", "C:\\Windows", true},
+			{"windows drive lowercase", "c:\\temp", true},
+			{"windows drive only", "D:", true},
+			{"windows UNC path", "\\\\server\\share", true},
+			{"unix style on windows", "/unix/style", false},
 		}
 		tests = append(tests, windowsTests...)
 	} else {
 		// On Unix, no paths have volume names.
 		unixTests := []struct {
+			name string
 			path string
 			want bool
 		}{
-			{"/absolute/path", false},
-			{"C:\\fake\\windows", false},
+			{"absolute path on unix", "/absolute/path", false},
+			{"fake windows path on unix", "C:\\fake\\windows", false},
 		}
 		tests = append(tests, unixTests...)
 	}
 
 	for _, tt := range tests {
-		got := hasVolumeName(tt.path)
-		if got != tt.want {
-			t.Errorf("hasVolumeName(%q) = %v, want %v", tt.path, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := hasVolumeName(tt.path)
+			assert.Equal(t, tt.want, got, "hasVolumeName(%q)", tt.path)
+		})
 	}
 }

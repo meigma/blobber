@@ -16,14 +16,22 @@ type ArchiveBuilder interface {
 
 // ArchiveReader reads eStargz blobs.
 // This interface is implemented by internal/archive.
+//
+// Note: The default implementation re-parses the eStargz archive on each call
+// to ReadTOC or OpenFile. For efficient repeated access to the same archive,
+// use [Client.OpenImage] which caches the parsed archive in an [Image].
 type ArchiveReader interface {
 	// ReadTOC extracts the TOC from an eStargz blob.
 	// The size parameter is the total blob size (needed for footer location).
 	ReadTOC(r io.ReaderAt, size int64) (*TOC, error)
 
 	// OpenFile returns a reader for a specific file within an eStargz blob.
-	// The offset and length are obtained from the TOC entry.
-	OpenFile(r io.ReaderAt, entry TOCEntry) (io.Reader, error)
+	// The size parameter is the total blob size (needed for estargz.Open).
+	// The caller obtains size from the registry pull operation.
+	//
+	// Note: Each call re-parses the archive. For multiple file access,
+	// prefer [Client.OpenImage] which caches the parsed state.
+	OpenFile(r io.ReaderAt, size int64, entry TOCEntry) (io.Reader, error)
 }
 
 // TOC represents the table of contents of an eStargz blob.

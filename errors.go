@@ -21,4 +21,7 @@ var (
 
 	// ErrInvalidArchive indicates the blob is not a valid eStargz archive.
 	ErrInvalidArchive = errors.New("blobber: invalid eStargz archive")
+
+	// ErrClosed indicates an operation was attempted on a closed resource.
+	ErrClosed = errors.New("blobber: resource closed")
 )

@@ -59,11 +59,15 @@ linters:
           - gocyclo
           - gocognit
           - funlen
-      # Exclude some gosec checks in test files
+          - goconst  # String constants like "windows" are common in test skips
+      # Exclude gosec checks in test files (test code has different security requirements)
       - path: '_test\.go'
         linters:
           - gosec
-        text: "G101|G104|G107"
+      # Allow unchecked errors in test cleanup code
+      - path: '_test\.go'
+        linters:
+          - errcheck
       # Allow issues in generated mock files
       - path: 'mocks/'
         linters:
