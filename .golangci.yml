@@ -1,0 +1,231 @@
+# golangci-lint configuration v2
+# See: https://golangci-lint.run/usage/configuration/
+version: "2"
+
+# Linter configuration
+linters:
+  # Start with the standard set and add more
+  default: standard
+
+  # Enable additional linters for security and best practices
+  enable:
+    # Security linters
+    - gosec          # Security scanner for Go code
+    - bodyclose      # Ensure HTTP response bodies are closed
+    - noctx          # Ensure HTTP requests use context
+
+    # Error handling
+    - errcheck       # Check for unchecked errors
+    - errname        # Check error variable naming conventions
+
+    # Code quality
+    - gocyclo        # Cyclomatic complexity
+    - gocognit       # Cognitive complexity
+    - goconst        # Find repeated strings that could be constants
+    - gocritic       # Comprehensive code review linter
+    - revive         # Fast, configurable linter (golint replacement)
+    - unconvert      # Detect unnecessary type conversions
+    - unparam        # Detect unused function parameters
+    - misspell       # Find commonly misspelled words
+    - prealloc       # Suggest preallocating slices
+    - nilerr         # Detect returning nil after checking error
+    - nilnil         # Detect returning nil, nil
+    - predeclared    # Detect shadowing of predeclared identifiers
+    - tparallel      # Detect inappropriate usage of t.Parallel
+    - thelper        # Detect test helpers without t.Helper()
+    - usestdlibvars  # Detect using magic numbers instead of stdlib constants
+    - wastedassign   # Find wasted assignments
+    - whitespace     # Detect leading/trailing whitespace
+    - copyloopvar    # Detect loop variable copies (Go 1.22+)
+    - intrange       # Suggest using integer range loops (Go 1.22+)
+    - sloglint       # Ensure consistent slog usage
+    - perfsprint     # Detect fmt.Sprintf that can be replaced
+
+  # Disable linters that are too noisy or not applicable
+  disable:
+    - depguard       # Requires explicit configuration, enable if needed
+
+  # Exclusion rules
+  exclusions:
+    # Built-in presets
+    presets:
+      - comments
+      - std-error-handling
+    # Custom rules
+    rules:
+      # Allow complexity in test files
+      - path: '_test\.go'
+        linters:
+          - gocyclo
+          - gocognit
+          - funlen
+      # Exclude some gosec checks in test files
+      - path: '_test\.go'
+        linters:
+          - gosec
+        text: "G101|G104|G107"
+      # Allow issues in generated mock files
+      - path: 'mocks/'
+        linters:
+          - gocritic
+          - revive
+          - stylecheck
+      # Exclude MVP spike from strict linting
+      - path: 'cmd/mvp/'
+        linters:
+          - errcheck
+          - gosec
+          - gocritic
+          - revive
+          - govet
+      # Internal packages return unexported types accessed via interfaces
+      - path: 'internal/'
+        linters:
+          - revive
+        text: "unexported-return"
+
+  # Linter-specific settings
+  settings:
+    # Security linter settings
+    gosec:
+      # Enable all rules by default
+      excludes: []
+      # Severity levels: low, medium, high
+      severity: medium
+      # Confidence levels: low, medium, high
+      confidence: medium
+      # Include additional checks
+      config:
+        global:
+          audit: true
+
+    # Error checking
+    errcheck:
+      # Check type assertions
+      check-type-assertions: true
+      # Check blank identifier assignments
+      check-blank: true
+      # Exclude common functions that are safe to ignore
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net.Conn).Close
+        - golang.org/x/term.Restore
+        - (io.Writer).Write
+
+    # Cyclomatic complexity threshold
+    gocyclo:
+      min-complexity: 15
+
+    # Cognitive complexity threshold
+    gocognit:
+      min-complexity: 20
+
+    # govet configuration
+    govet:
+      enable:
+        - shadow        # Check for variable shadowing
+        - nilness       # Check for redundant nil comparisons
+        - unusedwrite   # Check for unused writes
+
+    # gocritic comprehensive checks
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+        - opinionated
+      disabled-checks:
+        - whyNoLint     # Can be too strict
+
+    # revive linter rules
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+          disabled: true  # Allow packages without comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+          disabled: true  # Conflicts with unparam
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    # misspell settings
+    misspell:
+      locale: US
+
+    # slog linter settings
+    sloglint:
+      no-mixed-args: true
+      kv-only: false
+      attr-only: false
+      static-msg: false
+      no-raw-keys: false
+      key-naming-case: snake
+
+# Issue configuration
+issues:
+  # Maximum issues per linter (0 = unlimited)
+  max-issues-per-linter: 50
+  # Maximum identical issues (0 = unlimited)
+  max-same-issues: 3
+
+# Runtime configuration
+run:
+  # Timeout for analysis
+  timeout: 5m
+  # Include test files in analysis
+  tests: true
+  # Number of parallel workers
+  concurrency: 4
+  # Go version to use (auto-detect from go.mod)
+  go: ""
+  # Build tags
+  build-tags: []
+  # Modules download mode
+  modules-download-mode: readonly
+
+# Formatters configuration (v2 separates formatters from linters)
+formatters:
+  enable:
+    - goimports      # Format imports and code
+    - gofmt          # Standard Go formatting
+  settings:
+    goimports:
+      # Group local imports separately
+      local-prefixes:
+        - github.com/gilmanlab/blobber
+
+# Output configuration
+output:
+  formats:
+    text:
+      # Print linter name in output
+      print-linter-name: true
+      # Print lines with issues
+      print-issued-lines: true
+      # Use colors
+      colors: true
+  # Sort results for consistent output
+  sort-order:
+    - linter
+    - file
+  show-stats: true
