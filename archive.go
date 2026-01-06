@@ -6,12 +6,27 @@ import (
 	"io/fs"
 )
 
+// BuildResult contains the output of building an eStargz blob.
+type BuildResult struct {
+	// Blob is the eStargz blob reader. Caller must close when done.
+	Blob io.ReadCloser
+	// TOCDigest is the digest of the table of contents (for eStargz index).
+	TOCDigest string
+	// DiffID is the digest of the uncompressed layer content (for OCI config rootfs).
+	// Per OCI spec, DiffIDs must be the digest of the uncompressed tar, not the compressed blob.
+	DiffID string
+	// BlobDigest is the digest of the entire compressed blob (for OCI descriptor).
+	BlobDigest string
+	// BlobSize is the size of the compressed blob in bytes.
+	BlobSize int64
+}
+
 // ArchiveBuilder creates eStargz blobs from files.
 // This interface is implemented by internal/archive.
 type ArchiveBuilder interface {
 	// Build creates an eStargz blob from the given filesystem.
-	// Returns the blob reader, TOC digest, and diff ID.
-	Build(ctx context.Context, src fs.FS, compression Compression) (io.ReadCloser, string, error)
+	// Returns a BuildResult containing the blob, TOC digest, blob digest, and size.
+	Build(ctx context.Context, src fs.FS, compression Compression) (*BuildResult, error)
 }
 
 // ArchiveReader reads eStargz blobs.

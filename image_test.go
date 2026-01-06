@@ -23,11 +23,11 @@ func buildTestBlob(t *testing.T, fsys fstest.MapFS) (data []byte, size int64) {
 	t.Helper()
 
 	builder := archive.NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), fsys, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), fsys, blobber.GzipCompression())
 	require.NoError(t, err, "Build() failed")
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err = io.ReadAll(blob)
+	data, err = io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	size = int64(len(data))

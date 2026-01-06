@@ -12,10 +12,37 @@ import (
 	"os"
 
 	"github.com/containerd/stargz-snapshotter/estargz"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 
 	"github.com/gilmanlab/blobber"
 )
+
+// digestingWriter computes digest and size while writing.
+type digestingWriter struct {
+	w        io.Writer
+	digester digest.Digester
+	size     int64
+}
+
+func newDigestingWriter(w io.Writer) *digestingWriter {
+	return &digestingWriter{
+		w:        w,
+		digester: digest.SHA256.Digester(),
+	}
+}
+
+func (d *digestingWriter) Write(p []byte) (int, error) {
+	n, err := d.w.Write(p)
+	if n > 0 {
+		d.digester.Hash().Write(p[:n])
+		d.size += int64(n)
+	}
+	return n, err
+}
+
+func (d *digestingWriter) Digest() digest.Digest { return d.digester.Digest() }
+func (d *digestingWriter) Size() int64           { return d.size }
+
 
 // Compile-time interface implementation check.
 var _ blobber.ArchiveBuilder = (*builder)(nil)
@@ -37,16 +64,17 @@ func NewBuilder(logger *slog.Logger) *builder {
 
 // Build creates an eStargz blob from the given filesystem.
 // The tar data is streamed through a pipe to avoid buffering the uncompressed
-// archive. The compressed output is written to a temporary file.
-func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Compression) (io.ReadCloser, string, error) {
+// archive. The compressed output is written to a temporary file while computing
+// the blob digest and size for efficient streaming push.
+func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Compression) (*blobber.BuildResult, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	// Create temp file for compressed estargz output
 	esgzFile, err := os.CreateTemp("", "blobber-esgz-*")
 	if err != nil {
-		return nil, "", fmt.Errorf("create temp file: %w", err)
+		return nil, fmt.Errorf("create temp file: %w", err)
 	}
 	esgzPath := esgzFile.Name()
 
@@ -55,6 +83,9 @@ func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Comp
 		esgzFile.Close()
 		os.Remove(esgzPath)
 	}
+
+	// Wrap temp file with digesting writer to compute blob digest while writing
+	dw := newDigestingWriter(esgzFile)
 
 	// Create pipe for streaming tar data
 	pr, pw := io.Pipe()
@@ -68,14 +99,15 @@ func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Comp
 		errCh <- tarErr
 	}()
 
-	// Create estargz writer and consume tar from pipe
-	writer := estargz.NewWriterWithCompressor(esgzFile, compression)
+	// Create estargz writer using the digesting wrapper
+	writer := estargz.NewWriterWithCompressor(dw, compression)
 
-	if err = writer.AppendTar(pr); err != nil {
+	// Use AppendTarLossLess to preserve exact tar bytes.
+	if err = writer.AppendTarLossLess(pr); err != nil {
 		pr.Close() // Unblock goroutine if it's still writing
 		<-errCh    // Wait for goroutine to finish
 		cleanup()
-		return nil, "", fmt.Errorf("build estargz: %w", err)
+		return nil, fmt.Errorf("build estargz: %w", err)
 	}
 
 	var tocDigest digest.Digest
@@ -84,26 +116,33 @@ func (b *builder) Build(ctx context.Context, src fs.FS, compression blobber.Comp
 		pr.Close()
 		<-errCh
 		cleanup()
-		return nil, "", fmt.Errorf("close estargz writer: %w", err)
+		return nil, fmt.Errorf("close estargz writer: %w", err)
 	}
+	diffID := writer.DiffID()
 
 	// Wait for goroutine and check for errors
 	if tarErr := <-errCh; tarErr != nil {
 		cleanup()
-		return nil, "", fmt.Errorf("create tar: %w", tarErr)
+		return nil, fmt.Errorf("create tar: %w", tarErr)
 	}
 
 	// Seek to beginning for reading
 	if _, err := esgzFile.Seek(0, io.SeekStart); err != nil {
 		cleanup()
-		return nil, "", fmt.Errorf("seek temp file: %w", err)
+		return nil, fmt.Errorf("seek temp file: %w", err)
 	}
 
-	return &tempFileReader{
-		File:   esgzFile,
-		path:   esgzPath,
-		logger: b.logger,
-	}, tocDigest.String(), nil
+	return &blobber.BuildResult{
+		Blob: &tempFileReader{
+			File:   esgzFile,
+			path:   esgzPath,
+			logger: b.logger,
+		},
+		TOCDigest:  tocDigest.String(),
+		DiffID:     diffID,
+		BlobDigest: dw.Digest().String(),
+		BlobSize:   dw.Size(),
+	}, nil
 }
 
 // tempFileReader wraps a file and removes it on close.

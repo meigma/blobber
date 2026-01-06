@@ -62,11 +62,11 @@ func TestExtract(t *testing.T) {
 
 			// Build archive
 			builder := NewBuilder(nil)
-			blob, _, err := builder.Build(context.Background(), tt.fs, tt.compression)
+			result, err := builder.Build(context.Background(), tt.fs, tt.compression)
 			require.NoError(t, err)
-			defer blob.Close()
+			defer result.Blob.Close()
 
-			data, err := io.ReadAll(blob)
+			data, err := io.ReadAll(result.Blob)
 			require.NoError(t, err, "failed to read blob")
 
 			// Create temp directory for extraction
@@ -97,11 +97,11 @@ func TestExtract_FileContent(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	destDir := t.TempDir()
@@ -136,11 +136,11 @@ func TestExtract_Symlink(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), OSFS(tmpDir), blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), OSFS(tmpDir), blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	destDir := t.TempDir()
@@ -215,11 +215,11 @@ func TestExtract_Limits(t *testing.T) {
 			t.Parallel()
 
 			builder := NewBuilder(nil)
-			blob, _, err := builder.Build(context.Background(), tt.fs, blobber.GzipCompression())
+			result, err := builder.Build(context.Background(), tt.fs, blobber.GzipCompression())
 			require.NoError(t, err)
-			defer blob.Close()
+			defer result.Blob.Close()
 
-			data, err := io.ReadAll(blob)
+			data, err := io.ReadAll(result.Blob)
 			require.NoError(t, err, "failed to read blob")
 
 			destDir := t.TempDir()
@@ -244,11 +244,11 @@ func TestExtract_ContextCancellation(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -302,11 +302,11 @@ func Test_detectAndDecompress(t *testing.T) {
 			}
 
 			builder := NewBuilder(nil)
-			blob, _, err := builder.Build(context.Background(), testFS, tt.compression)
+			result, err := builder.Build(context.Background(), testFS, tt.compression)
 			require.NoError(t, err)
-			defer blob.Close()
+			defer result.Blob.Close()
 
-			data, err := io.ReadAll(blob)
+			data, err := io.ReadAll(result.Blob)
 			require.NoError(t, err, "failed to read blob")
 
 			reader, err := detectAndDecompress(bytes.NewReader(data))

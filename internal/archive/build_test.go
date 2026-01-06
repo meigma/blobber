@@ -2,6 +2,7 @@ package archive
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"io"
 	"io/fs"
@@ -11,11 +12,75 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/klauspost/compress/zstd"
+	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/gilmanlab/blobber"
 )
+
+func TestDigestingWriter(t *testing.T) {
+	t.Parallel()
+
+	t.Run("computes correct digest and size", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		dw := newDigestingWriter(&buf)
+
+		data := []byte("hello world")
+		n, err := dw.Write(data)
+		require.NoError(t, err)
+		assert.Equal(t, len(data), n)
+
+		// Verify size
+		assert.Equal(t, int64(len(data)), dw.Size())
+
+		// Verify digest matches expected SHA256
+		expected := digest.FromBytes(data)
+		assert.Equal(t, expected, dw.Digest())
+
+		// Verify data was written to underlying buffer
+		assert.Equal(t, data, buf.Bytes())
+	})
+
+	t.Run("accumulates size across multiple writes", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		dw := newDigestingWriter(&buf)
+
+		chunk1 := []byte("hello ")
+		chunk2 := []byte("world")
+
+		_, err := dw.Write(chunk1)
+		require.NoError(t, err)
+
+		_, err = dw.Write(chunk2)
+		require.NoError(t, err)
+
+		// Total size should be sum of chunks
+		assert.Equal(t, int64(len(chunk1)+len(chunk2)), dw.Size())
+
+		// Digest should be of combined data
+		combined := append(chunk1, chunk2...)
+		expected := digest.FromBytes(combined)
+		assert.Equal(t, expected, dw.Digest())
+	})
+
+	t.Run("handles empty write", func(t *testing.T) {
+		t.Parallel()
+
+		var buf bytes.Buffer
+		dw := newDigestingWriter(&buf)
+
+		n, err := dw.Write([]byte{})
+		require.NoError(t, err)
+		assert.Equal(t, 0, n)
+		assert.Equal(t, int64(0), dw.Size())
+	})
+}
 
 func TestBuild(t *testing.T) {
 	t.Parallel()
@@ -69,21 +134,34 @@ func TestBuild(t *testing.T) {
 			t.Parallel()
 
 			builder := NewBuilder(nil)
-			blob, tocDigest, err := builder.Build(context.Background(), tt.fs, tt.compression)
+			result, err := builder.Build(context.Background(), tt.fs, tt.compression)
 
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
-			require.NotNil(t, blob, "Build() returned nil blob")
-			defer blob.Close()
+			require.NotNil(t, result, "Build() returned nil result")
+			require.NotNil(t, result.Blob, "Build() returned nil blob")
+			defer result.Blob.Close()
 
-			assert.NotEmpty(t, tocDigest, "Build() returned empty TOC digest")
+			assert.NotEmpty(t, result.TOCDigest, "Build() returned empty TOC digest")
+			assert.NotEmpty(t, result.DiffID, "Build() returned empty DiffID")
+			assert.NotEmpty(t, result.BlobDigest, "Build() returned empty blob digest")
+			assert.Greater(t, result.BlobSize, int64(0), "Build() returned zero blob size")
 
-			data, err := io.ReadAll(blob)
+			// DiffID (uncompressed) must differ from BlobDigest (compressed)
+			assert.NotEqual(t, result.DiffID, result.BlobDigest,
+				"DiffID should differ from BlobDigest (uncompressed vs compressed)")
+
+			data, err := io.ReadAll(result.Blob)
 			require.NoError(t, err, "failed to read blob")
 			assert.NotEmpty(t, data, "Build() returned empty blob")
+			assert.Equal(t, result.BlobSize, int64(len(data)), "BlobSize mismatch")
+
+			// Verify BlobDigest matches actual content
+			actualDigest := digest.FromBytes(data)
+			assert.Equal(t, actualDigest.String(), result.BlobDigest, "BlobDigest mismatch")
 		})
 	}
 }
@@ -99,9 +177,88 @@ func TestBuild_ContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	builder := NewBuilder(nil)
-	_, _, err := builder.Build(ctx, testFS, blobber.GzipCompression())
+	_, err := builder.Build(ctx, testFS, blobber.GzipCompression())
 
 	assert.Error(t, err, "Build() should return error when context is canceled")
+}
+
+func TestBuild_DiffIDMatchesDecompressedBlob(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		compression blobber.Compression
+		decompress  func([]byte) ([]byte, error)
+	}{
+		{
+			name:        "gzip",
+			compression: blobber.GzipCompression(),
+			decompress: func(data []byte) ([]byte, error) {
+				// estargz uses multiple concatenated gzip streams for lazy loading.
+				// We need to read all streams to get the complete tar.
+				var result bytes.Buffer
+				r := bytes.NewReader(data)
+				for {
+					gr, err := gzip.NewReader(r)
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return nil, err
+					}
+					if _, err := io.Copy(&result, gr); err != nil {
+						gr.Close()
+						return nil, err
+					}
+					gr.Close()
+				}
+				return result.Bytes(), nil
+			},
+		},
+		{
+			name:        "zstd",
+			compression: blobber.ZstdCompression(),
+			decompress: func(data []byte) ([]byte, error) {
+				zr, err := zstd.NewReader(bytes.NewReader(data))
+				if err != nil {
+					return nil, err
+				}
+				defer zr.Close()
+				return io.ReadAll(zr)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			testFS := fstest.MapFS{
+				"hello.txt": &fstest.MapFile{Data: []byte("hello world"), Mode: 0o644},
+				"data.bin":  &fstest.MapFile{Data: []byte{0x00, 0x01, 0x02, 0x03}, Mode: 0o644},
+			}
+
+			builder := NewBuilder(nil)
+			result, err := builder.Build(context.Background(), testFS, tt.compression)
+			require.NoError(t, err)
+			defer result.Blob.Close()
+
+			// Read the compressed blob
+			compressedData, err := io.ReadAll(result.Blob)
+			require.NoError(t, err)
+
+			// Decompress the blob
+			uncompressedData, err := tt.decompress(compressedData)
+			require.NoError(t, err, "failed to decompress blob")
+
+			// Hash the uncompressed layer bytes.
+			actualDiffID := digest.FromBytes(uncompressedData)
+
+			// Verify DiffID matches the hash of the original tar content
+			assert.Equal(t, actualDiffID.String(), result.DiffID,
+				"DiffID should match the digest of the original tar content")
+		})
+	}
 }
 
 func TestBuild_RoundTrip(t *testing.T) {
@@ -114,11 +271,11 @@ func TestBuild_RoundTrip(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -153,14 +310,14 @@ func TestBuild_TempFileCleanup(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
 
 	// Drain blob before closing - estargz uses io.Pipe internally
 	// and will block/leak goroutines if not drained
-	_, copyErr := io.Copy(io.Discard, blob)
+	_, copyErr := io.Copy(io.Discard, result.Blob)
 	require.NoError(t, copyErr, "failed to drain blob")
-	blob.Close()
+	result.Blob.Close()
 
 	// Verify temp directory is empty (temp file was cleaned up)
 	entries, err := os.ReadDir(tmpDir)
@@ -190,12 +347,12 @@ func TestBuild_WithSymlinks(t *testing.T) {
 
 	// Build using OSFS (which supports symlinks)
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), OSFS(tmpDir), blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), OSFS(tmpDir), blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
 	// Read the blob and verify TOC
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -227,13 +384,13 @@ func TestBuild_SymlinkWithoutLstatFS(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 
 	if err == nil {
 		// Drain blob to avoid goroutine leak
-		if blob != nil {
-			_, _ = io.Copy(io.Discard, blob)
-			blob.Close()
+		if result != nil && result.Blob != nil {
+			_, _ = io.Copy(io.Discard, result.Blob)
+			result.Blob.Close()
 		}
 	}
 	assert.Error(t, err, "Build() should return error for symlink without Lstat support")
@@ -260,11 +417,11 @@ func TestBuild_EmptyFile(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -293,11 +450,11 @@ func TestBuild_SpecialCharacters(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -339,11 +496,11 @@ func TestBuild_DeeplyNested(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()

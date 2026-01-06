@@ -26,11 +26,11 @@ func TestReader_ReadTOC(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -66,11 +66,11 @@ func TestReader_ReadTOC_Zstd(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.ZstdCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.ZstdCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -101,11 +101,11 @@ func TestReader_OpenFile(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -146,11 +146,11 @@ func TestReader_OpenFile_Zstd(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.ZstdCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.ZstdCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()
@@ -185,11 +185,11 @@ func TestReader_OpenFile_Missing(t *testing.T) {
 	}
 
 	builder := NewBuilder(nil)
-	blob, _, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), testFS, blobber.GzipCompression())
 	require.NoError(t, err)
-	defer blob.Close()
+	defer result.Blob.Close()
 
-	data, err := io.ReadAll(blob)
+	data, err := io.ReadAll(result.Blob)
 	require.NoError(t, err, "failed to read blob")
 
 	reader := NewReader()

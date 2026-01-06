@@ -25,4 +25,12 @@ type RegistryPushOptions struct {
 	MediaType   string
 	Annotations map[string]string
 	TOCDigest   string
+
+	// DiffID is the digest of the uncompressed layer content (required for OCI config).
+	// Per OCI spec, this must be the uncompressed tar digest, not the compressed blob digest.
+	DiffID string
+	// BlobDigest is the pre-computed digest of the compressed blob (required for streaming push).
+	BlobDigest string
+	// BlobSize is the pre-computed size of the compressed blob in bytes (required for streaming push).
+	BlobSize int64
 }
