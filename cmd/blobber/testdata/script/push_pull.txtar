@@ -1,0 +1,22 @@
+# Test basic push and pull round-trip
+
+# Push testdata to registry
+exec blobber push --insecure testdata $REGISTRY/cli-test/pushpull:v1
+stdout 'sha256:'
+! stderr .
+
+# Pull to new directory
+exec blobber pull --insecure $REGISTRY/cli-test/pushpull:v1 output
+! stderr .
+
+# Verify files were pulled
+exists output/config.yaml
+exists output/data.txt
+exists output/subdir/nested.txt
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+another file
+-- testdata/subdir/nested.txt --
+nested content

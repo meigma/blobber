@@ -1,0 +1,30 @@
+# Test list command in both short and long formats
+
+# First push something to list
+exec blobber push --insecure testdata $REGISTRY/cli-test/list:v1
+! stderr .
+
+# Test short format (default)
+exec blobber list --insecure $REGISTRY/cli-test/list:v1
+stdout 'config.yaml'
+stdout 'data.txt'
+stdout 'subdir/nested.txt'
+! stderr .
+
+# Test ls alias
+exec blobber ls --insecure $REGISTRY/cli-test/list:v1
+stdout 'config.yaml'
+! stderr .
+
+# Test long format with -l flag
+exec blobber ls -l --insecure $REGISTRY/cli-test/list:v1
+stdout 'config.yaml'
+stdout '0644'
+! stderr .
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+another file
+-- testdata/subdir/nested.txt --
+nested content

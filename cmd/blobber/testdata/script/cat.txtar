@@ -1,0 +1,22 @@
+# Test cat command for streaming file content
+
+# Push testdata first
+exec blobber push --insecure testdata $REGISTRY/cli-test/cat:v1
+! stderr .
+
+# Cat a root-level file
+exec blobber cat --insecure $REGISTRY/cli-test/cat:v1 config.yaml
+stdout 'hello from config.yaml'
+! stderr .
+
+# Cat a nested file
+exec blobber cat --insecure $REGISTRY/cli-test/cat:v1 subdir/nested.txt
+stdout 'nested content'
+! stderr .
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+another file
+-- testdata/subdir/nested.txt --
+nested content

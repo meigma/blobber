@@ -1,0 +1,21 @@
+# Test pull conflict detection and --overwrite flag
+
+# Push initial data
+exec blobber push --insecure testdata $REGISTRY/cli-test/overwrite:v1
+! stderr .
+
+# Pull once
+exec blobber pull --insecure $REGISTRY/cli-test/overwrite:v1 output
+! stderr .
+
+# Pull again without --overwrite should fail
+! exec blobber pull --insecure $REGISTRY/cli-test/overwrite:v1 output
+stderr 'already exist'
+stderr '--overwrite'
+
+# Pull with --overwrite should succeed
+exec blobber pull --insecure --overwrite $REGISTRY/cli-test/overwrite:v1 output
+! stderr .
+
+-- testdata/config.yaml --
+hello from config.yaml

@@ -1,0 +1,40 @@
+# Test error handling for various failure cases
+
+# Test: image not found
+! exec blobber pull --insecure $REGISTRY/nonexistent/image:v1 output
+stderr 'not found'
+
+# Test: list nonexistent image
+! exec blobber list --insecure $REGISTRY/nonexistent/image:v1
+stderr 'not found'
+
+# Test: cat nonexistent image
+! exec blobber cat --insecure $REGISTRY/nonexistent/image:v1 file.txt
+stderr 'not found'
+
+# First push something so we can test file-not-found
+exec blobber push --insecure testdata $REGISTRY/cli-test/errors:v1
+! stderr .
+
+# Test: cat file that doesn't exist in image
+! exec blobber cat --insecure $REGISTRY/cli-test/errors:v1 nonexistent.txt
+stderr 'not found'
+
+# Test: push missing directory
+! exec blobber push --insecure missing-dir $REGISTRY/cli-test/missing:v1
+stderr 'directory not found'
+
+# Test: push wrong arg count
+! exec blobber push --insecure
+stderr 'accepts 2 arg'
+
+# Test: pull wrong arg count
+! exec blobber pull --insecure
+stderr 'accepts 2 arg'
+
+# Test: invalid compression flag
+! exec blobber push --insecure --compression invalid testdata $REGISTRY/cli-test/invalid:v1
+stderr 'invalid compression'
+
+-- testdata/config.yaml --
+test content
