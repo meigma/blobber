@@ -1,0 +1,49 @@
+name: Version Docs
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  version-docs:
+    runs-on: ubuntu-latest
+    if: "!github.event.release.prerelease"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create docs version
+        working-directory: docs
+        run: npm run docusaurus docs:version ${{ steps.version.outputs.version }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: version ${{ steps.version.outputs.version }}"
+          branch: docs/version-${{ steps.version.outputs.version }}
+          title: "docs: version ${{ steps.version.outputs.version }}"
+          body: |
+            Automated docs versioning for release ${{ github.ref_name }}.
+
+            This PR snapshots the current documentation for version ${{ steps.version.outputs.version }}.
+          labels: documentation
