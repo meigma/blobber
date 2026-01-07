@@ -7,7 +7,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/profiling
 
 jobs:
   profile:
@@ -18,6 +17,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set image name (lowercase for GHCR)
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}/profiling" >> "$GITHUB_ENV"
 
       - uses: actions/setup-go@v5
         with:
@@ -55,7 +57,11 @@ jobs:
 
       - name: Run profiler (push + pull to GHCR)
         env:
-          PYROSCOPE_AUTH_TOKEN: ${{ secrets.GRAFANA_PYROSCOPE_TOKEN }}
+          # Grafana Cloud Pyroscope requires BasicAuth
+          # GRAFANA_PYROSCOPE_USER: instance ID from Grafana Cloud (numeric)
+          # GRAFANA_PYROSCOPE_TOKEN: API token
+          PYROSCOPE_BASIC_AUTH_USER: ${{ secrets.GRAFANA_PYROSCOPE_USER }}
+          PYROSCOPE_BASIC_AUTH_PASSWORD: ${{ secrets.GRAFANA_PYROSCOPE_TOKEN }}
         run: |
           go run -tags profiling ./cmd/profile \
             --mode=both \

@@ -100,7 +100,13 @@ func main() {
 		profiler, err := pyroscope.Start(pyroscope.Config{
 			ApplicationName: "blobber-profile",
 			ServerAddress:   *pyroAddr,
-			AuthToken:       os.Getenv("PYROSCOPE_AUTH_TOKEN"),
+			// Grafana Cloud requires BasicAuth (AuthToken is deprecated)
+			// User: instance ID from Grafana Cloud, Password: API token
+			BasicAuthUser:     os.Getenv("PYROSCOPE_BASIC_AUTH_USER"),
+			BasicAuthPassword: os.Getenv("PYROSCOPE_BASIC_AUTH_PASSWORD"),
+			// Use a short upload rate since profiling runs are brief (~10s)
+			UploadRate: 5 * time.Second,
+			Logger:     pyroscope.StandardLogger,
 			Tags: map[string]string{
 				"mode":    modeValue,
 				"git_sha": os.Getenv("GITHUB_SHA"),
