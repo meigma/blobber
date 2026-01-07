@@ -81,29 +81,9 @@ signs:
       - "--yes"
     artifacts: sbom
 
+# Changelog is managed by release-please
 changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
-      - "^ci:"
-      - Merge pull request
-      - Merge branch
-  groups:
-    - title: Features
-      regexp: '^feat(\(.+\))?:'
-      order: 0
-    - title: Bug Fixes
-      regexp: '^fix(\(.+\))?:'
-      order: 1
-    - title: Refactoring
-      regexp: '^refactor(\(.+\))?:'
-      order: 2
-    - title: Others
-      order: 999
+  disable: true
 
 brews:
   - repository:
@@ -125,6 +105,8 @@ release:
   github:
     owner: gilmanlab
     name: blobber
+  # Append to the release created by release-please
+  mode: append
   draft: false
   prerelease: auto
   name_template: "v{{.Version}}"
