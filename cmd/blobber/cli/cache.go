@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"text/tabwriter"
 	"time"
 
@@ -247,25 +248,13 @@ func truncateDigest(digest string) string {
 func parseDuration(s string) (time.Duration, error) {
 	// Handle days suffix
 	if s != "" && s[len(s)-1] == 'd' {
-		days, err := parseInt(s[:len(s)-1])
+		days, err := strconv.Atoi(s[:len(s)-1])
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("invalid days: %w", err)
 		}
 		return time.Duration(days) * 24 * time.Hour, nil
 	}
 	return time.ParseDuration(s)
-}
-
-// parseInt parses an integer from a string.
-func parseInt(s string) (int, error) {
-	var n int
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0, fmt.Errorf("invalid integer: %s", s)
-		}
-		n = n*10 + int(c-'0')
-	}
-	return n, nil
 }
 
 // safeUint64 converts int64 to uint64, clamping negative values to 0.

@@ -1,10 +1,7 @@
 package blobber
 
 import (
-	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
@@ -118,21 +115,10 @@ func WithUserAgent(ua string) ClientOption {
 // Caching is opt-in; if not specified, no caching is performed.
 func WithCacheDir(path string) ClientOption {
 	return func(c *Client) error {
-		// Expand ~ to home directory
-		if path != "" && path[0] == '~' {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("expand home directory: %w", err)
-			}
-			path = filepath.Join(home, path[1:])
-		}
-
-		// Convert to absolute path
-		absPath, err := filepath.Abs(path)
+		absPath, err := resolveCachePath(path)
 		if err != nil {
-			return fmt.Errorf("resolve cache path: %w", err)
+			return err
 		}
-
 		c.cacheDir = absPath
 		return nil
 	}

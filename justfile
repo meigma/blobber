@@ -18,11 +18,6 @@ build:
 build-cli:
     go build -o bin/blobber ./cmd/blobber
 
-# Build the MVP spike
-[group('build')]
-build-mvp:
-    go build -o bin/mvp ./cmd/mvp
-
 # ---------- Test ----------
 
 # Run all tests
@@ -80,11 +75,6 @@ fmt-check:
 # Run go mod tidy
 tidy:
     go mod tidy
-
-# Run the MVP spike against local registry
-[group('dev')]
-run-mvp: _ensure-registry
-    go run ./cmd/mvp
 
 # Clean build artifacts
 clean:
