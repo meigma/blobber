@@ -9,8 +9,10 @@ Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob
 ### CLI
 
 ```bash
-go install github.com/gilmanlab/blobber/cmd/blobber@latest
+curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | sh
 ```
+
+See the [installation docs](https://blobber.gilman.io/getting-started/cli/installation) for other options (Homebrew, Scoop, Nix, Go).
 
 ### Library
 
