@@ -7,9 +7,12 @@ import (
 )
 
 // copyWithContext copies from src to dst while honoring context cancellation.
-// It checks context every 32KB to balance responsiveness with performance.
-func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
-	buf := make([]byte, 32*1024)
+// It checks context every 128KB to balance responsiveness with performance.
+func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader, buf []byte) error {
+	if len(buf) < copyBufferSize {
+		buf = make([]byte, copyBufferSize)
+	}
+	buf = buf[:copyBufferSize]
 	for {
 		select {
 		case <-ctx.Done():
@@ -31,3 +34,5 @@ func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
 		}
 	}
 }
+
+const copyBufferSize = 128 * 1024

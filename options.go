@@ -102,6 +102,15 @@ func WithUserAgent(ua string) ClientOption {
 	}
 }
 
+// WithDescriptorCache enables in-memory caching for layer descriptor resolution.
+// This can return stale results for mutable tags; prefer digest references.
+func WithDescriptorCache(enabled bool) ClientOption {
+	return func(c *Client) error {
+		c.descCache = enabled
+		return nil
+	}
+}
+
 // WithCacheDir enables blob caching at the specified directory path.
 // When caching is enabled, blobs are stored locally after download and
 // served from the cache on subsequent requests.

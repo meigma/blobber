@@ -1,0 +1,66 @@
+name: Profiling
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 6am UTC
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/profiling
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate test payload
+        run: |
+          mkdir -p tmp/profiledata/small tmp/profiledata/nested
+
+          # Large files (2 x 64MB)
+          dd if=/dev/urandom of=tmp/profiledata/big-rand.bin bs=1M count=64 2>/dev/null
+          dd if=/dev/zero of=tmp/profiledata/big-zero.bin bs=1M count=64 2>/dev/null
+
+          # Medium files (200 x 4KB blobs)
+          for i in $(seq 1 200); do
+            dd if=/dev/urandom of=tmp/profiledata/nested/blob_${i}.bin bs=4K count=1 2>/dev/null
+          done
+
+          # Small files (2000 x 16B text files)
+          for i in $(seq 1 2000); do
+            echo "file content $i" > tmp/profiledata/small/file_${i}.txt
+          done
+
+          # Summary
+          echo "Payload created:"
+          du -sh tmp/profiledata/
+          find tmp/profiledata -type f | wc -l | xargs echo "Total files:"
+
+      - name: Run profiler (push + pull to GHCR)
+        env:
+          PYROSCOPE_AUTH_TOKEN: ${{ secrets.GRAFANA_PYROSCOPE_TOKEN }}
+        run: |
+          go run -tags profiling ./cmd/profile \
+            --mode=both \
+            --profile=none \
+            --pyroscope=${{ secrets.GRAFANA_PYROSCOPE_URL }} \
+            --ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:profiling \
+            --payload=tmp/profiledata \
+            --label=ghcr

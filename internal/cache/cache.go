@@ -232,10 +232,24 @@ func (cr *cachingReader) Close() error {
 	}
 	cr.closed = true
 
+	if cr.err == nil && cr.written < cr.desc.Size {
+		cr.cache.logger.Debug("stream-through draining remainder",
+			"expected", cr.desc.Size,
+			"written", cr.written)
+		if drainErr := cr.drainToCache(); drainErr != nil {
+			cr.err = drainErr
+		}
+	}
+
 	readerErr := cr.reader.Close()
 
 	// If we had errors or incomplete data, clean up
 	if cr.err != nil || cr.written != cr.desc.Size {
+		cr.cache.logger.Debug("stream-through incomplete, not caching",
+			"expected", cr.desc.Size,
+			"written", cr.written,
+			"write_error", cr.err,
+			"read_error", readerErr)
 		cr.file.Close()
 		os.Remove(cr.tmpPath)
 		return readerErr
@@ -282,6 +296,41 @@ func (cr *cachingReader) Close() error {
 
 	cr.cache.logger.Debug("stream-through cached blob", "digest", cr.desc.Digest, "size", cr.written)
 	return readerErr
+}
+
+func (cr *cachingReader) drainToCache() error {
+	remaining := cr.desc.Size - cr.written
+	if remaining <= 0 {
+		return nil
+	}
+
+	buf := make([]byte, 128*1024)
+	lr := &io.LimitedReader{R: cr.reader, N: remaining}
+	for lr.N > 0 {
+		n, err := lr.Read(buf)
+		if n > 0 {
+			written, writeErr := cr.file.Write(buf[:n])
+			if writeErr != nil {
+				return writeErr
+			}
+			if written != n {
+				return io.ErrShortWrite
+			}
+			cr.written += int64(written)
+			//nolint:errcheck // hash.Write never returns an error per hash.Hash contract
+			cr.hasher.Write(buf[:written])
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
+	}
+	if lr.N > 0 {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 
 // Evict removes a blob from the cache, including any partial download.

@@ -25,6 +25,7 @@ type Client struct {
 	credStore credentials.Store
 	plainHTTP bool
 	userAgent string
+	descCache bool
 
 	// cache configuration (opt-in)
 	cacheDir           string
@@ -67,6 +68,9 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 	if c.userAgent != "" {
 		regOpts = append(regOpts, registry.WithUserAgent(c.userAgent))
+	}
+	if c.descCache {
+		regOpts = append(regOpts, registry.WithDescriptorCache(true))
 	}
 
 	c.registry = registry.New(regOpts...)

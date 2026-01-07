@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/opencontainers/image-spec/specs-go"
@@ -34,9 +35,10 @@ type Option func(*orasRegistry)
 
 // orasRegistry implements blobber.Registry using ORAS.
 type orasRegistry struct {
-	plainHTTP bool
-	userAgent string
-	credStore credentials.Store
+	plainHTTP       bool
+	userAgent       string
+	credStore       credentials.Store
+	descriptorCache *descriptorCache
 }
 
 // New creates a new Registry backed by ORAS.
@@ -48,6 +50,39 @@ func New(opts ...Option) *orasRegistry {
 		opt(r)
 	}
 	return r
+}
+
+type resolvedLayer struct {
+	desc           ocispec.Descriptor
+	manifestDigest string
+	platform       string
+}
+
+type descriptorCache struct {
+	mu      sync.RWMutex
+	entries map[string]resolvedLayer
+}
+
+func newDescriptorCache() *descriptorCache {
+	return &descriptorCache{
+		entries: make(map[string]resolvedLayer),
+	}
+}
+
+func (c *descriptorCache) Get(key string) (resolvedLayer, bool) {
+	c.mu.RLock()
+	entry, ok := c.entries[key]
+	c.mu.RUnlock()
+	return entry, ok
+}
+
+func (c *descriptorCache) Set(key string, entry *resolvedLayer) {
+	if entry == nil {
+		return
+	}
+	c.mu.Lock()
+	c.entries[key] = *entry
+	c.mu.Unlock()
 }
 
 // Push uploads a blob and creates a manifest using streaming.
@@ -201,7 +236,8 @@ func (r *orasRegistry) Pull(ctx context.Context, ref string) (io.ReadCloser, int
 	}
 
 	// Resolve layer descriptor.
-	layerDesc, manifestDigest, platform, err := r.resolveLayerDescriptorFull(ctx, repo, parsedRef.Reference)
+	cacheKey := parsedRef.String()
+	layerDesc, manifestDigest, platform, err := r.resolveLayerDescriptor(ctx, repo, cacheKey, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
 			return nil, 0, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
@@ -236,7 +272,8 @@ func (r *orasRegistry) ResolveLayer(ctx context.Context, ref string) (core.Layer
 		return core.LayerDescriptor{}, fmt.Errorf("create repository: %w", err)
 	}
 
-	layerDesc, manifestDigest, platform, err := r.resolveLayerDescriptorFull(ctx, repo, parsedRef.Reference)
+	cacheKey := parsedRef.String()
+	layerDesc, manifestDigest, platform, err := r.resolveLayerDescriptor(ctx, repo, cacheKey, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
 			return core.LayerDescriptor{}, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
@@ -320,7 +357,8 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 	}
 
 	// Resolve layer descriptor.
-	layerDesc, _, _, err := r.resolveLayerDescriptorFull(ctx, repo, parsedRef.Reference)
+	cacheKey := parsedRef.String()
+	layerDesc, _, _, err := r.resolveLayerDescriptor(ctx, repo, cacheKey, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
 			return nil, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
@@ -469,6 +507,18 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// WithDescriptorCache enables in-memory caching for layer resolution.
+// This can serve stale data for mutable tags; prefer digest references when possible.
+func WithDescriptorCache(enabled bool) Option {
+	return func(r *orasRegistry) {
+		if enabled {
+			r.descriptorCache = newDescriptorCache()
+			return
+		}
+		r.descriptorCache = nil
+	}
+}
+
 // newRepository creates an authenticated remote repository.
 func (r *orasRegistry) newRepository(ref registry.Reference) (*remote.Repository, error) {
 	repoRef := fmt.Sprintf("%s/%s", ref.Registry, ref.Repository)
@@ -493,6 +543,27 @@ func (r *orasRegistry) newRepository(ref registry.Reference) (*remote.Repository
 	}
 
 	return repo, nil
+}
+
+func (r *orasRegistry) resolveLayerDescriptor(ctx context.Context, repo *remote.Repository, cacheKey, reference string) (desc ocispec.Descriptor, manifestDigest, platform string, err error) {
+	if cacheKey != "" && r.descriptorCache != nil {
+		if cached, ok := r.descriptorCache.Get(cacheKey); ok {
+			return cached.desc, cached.manifestDigest, cached.platform, nil
+		}
+	}
+
+	desc, manifestDigest, platform, err = r.resolveLayerDescriptorFull(ctx, repo, reference)
+	if err != nil {
+		return ocispec.Descriptor{}, "", "", err
+	}
+	if cacheKey != "" && r.descriptorCache != nil {
+		r.descriptorCache.Set(cacheKey, &resolvedLayer{
+			desc:           desc,
+			manifestDigest: manifestDigest,
+			platform:       platform,
+		})
+	}
+	return desc, manifestDigest, platform, nil
 }
 
 // resolveLayerDescriptorFull fetches the manifest and returns the layer descriptor,

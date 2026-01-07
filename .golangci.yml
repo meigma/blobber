@@ -79,6 +79,14 @@ linters:
         linters:
           - revive
         text: "unexported-return"
+      # Profiling harness is an internal dev tool with acceptable complexity/security tradeoffs
+      - path: 'cmd/profile/'
+        linters:
+          - gocognit
+          - gocyclo
+          - gosec
+          - gocritic
+          - govet
 
   # Linter-specific settings
   settings:

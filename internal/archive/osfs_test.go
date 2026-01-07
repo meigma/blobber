@@ -170,7 +170,7 @@ func TestOSFS_Symlink(t *testing.T) {
 
 	linkPath := filepath.Join(tmpDir, "link.txt")
 	if err := os.Symlink("target.txt", linkPath); err != nil {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			t.Skipf("skipping symlink test on windows: %v", err)
 		}
 		require.NoError(t, err)

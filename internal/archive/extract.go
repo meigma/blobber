@@ -12,6 +12,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/klauspost/compress/zstd"
 
@@ -35,7 +37,16 @@ func Extract(ctx context.Context, r io.Reader, destDir string, validator core.Pa
 	defer decompReader.Close()
 
 	tr := tar.NewReader(decompReader)
-	state := &extractState{limits: limits}
+	state := &extractState{
+		limits:        limits,
+		buf:           make([]byte, copyBufferSize),
+		validatedDirs: make(map[string]struct{}),
+		createdDirs:   make(map[string]struct{}),
+	}
+	if info, err := os.Stat(destDir); err == nil && info.IsDir() {
+		state.validatedDirs[destDir] = struct{}{}
+		state.createdDirs[destDir] = struct{}{}
+	}
 
 	for {
 		select {
@@ -62,9 +73,12 @@ func Extract(ctx context.Context, r io.Reader, destDir string, validator core.Pa
 
 // extractState tracks extraction progress for limit enforcement.
 type extractState struct {
-	limits    core.ExtractLimits
-	fileCount int
-	totalSize int64
+	limits        core.ExtractLimits
+	fileCount     int
+	totalSize     int64
+	buf           []byte
+	validatedDirs map[string]struct{}
+	createdDirs   map[string]struct{}
 }
 
 // processEntry handles a single tar entry.
@@ -89,14 +103,14 @@ func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *t
 	// Extract based on type
 	switch header.Typeflag {
 	case tar.TypeDir:
-		return extractDir(destDir, header)
+		return extractDir(destDir, header, state)
 	case tar.TypeReg:
-		return extractFile(ctx, destDir, header, tr)
+		return extractFile(ctx, destDir, header, tr, state)
 	case tar.TypeSymlink:
 		if err := validator.ValidateSymlink(destDir, header.Name, header.Linkname); err != nil {
 			return err
 		}
-		return extractSymlink(destDir, header)
+		return extractSymlink(destDir, header, state)
 	case tar.TypeLink, tar.TypeChar, tar.TypeBlock, tar.TypeFifo:
 		return fmt.Errorf("%w: unsupported entry type %q for %s", core.ErrInvalidArchive, header.Typeflag, header.Name)
 	}
@@ -161,32 +175,25 @@ func detectAndDecompress(r io.Reader) (io.ReadCloser, error) {
 // extractDir creates a directory from a tar header.
 //
 //nolint:gosec // G305: Path validated by caller via PathValidator
-func extractDir(destDir string, header *tar.Header) error {
+func extractDir(destDir string, header *tar.Header, state *extractState) error {
 	fullPath := filepath.Join(destDir, header.Name)
 
-	// Best-effort TOCTOU check
-	if err := validateNotSymlink(filepath.Dir(fullPath)); err != nil {
+	if err := ensureParentDir(parentDir(fullPath), state); err != nil {
 		return err
 	}
 
 	//nolint:gosec // G115: Mode from trusted tar header, G301: dir perms from archive
-	return os.MkdirAll(fullPath, fs.FileMode(header.Mode))
+	return mkdirAllCached(fullPath, fs.FileMode(header.Mode), state)
 }
 
 // extractFile extracts a regular file from a tar stream.
 //
 //nolint:gosec // G305: Path validated by caller via PathValidator
-func extractFile(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader) error {
+func extractFile(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader, state *extractState) error {
 	fullPath := filepath.Join(destDir, header.Name)
 
-	// Best-effort TOCTOU check on parent
-	parent := filepath.Dir(fullPath)
-	if err := validateNotSymlink(parent); err != nil {
-		return err
-	}
-
-	// Create parent directories
-	if err := os.MkdirAll(parent, 0o750); err != nil {
+	parent := parentDir(fullPath)
+	if err := ensureParentDir(parent, state); err != nil {
 		return err
 	}
 
@@ -198,7 +205,7 @@ func extractFile(ctx context.Context, destDir string, header *tar.Header, tr *ta
 	}
 
 	// Copy content with context cancellation support
-	copyErr := copyWithContext(ctx, f, tr)
+	copyErr := copyWithContext(ctx, f, tr, state.buf)
 	closeErr := f.Close()
 	if copyErr != nil {
 		return copyErr
@@ -209,17 +216,11 @@ func extractFile(ctx context.Context, destDir string, header *tar.Header, tr *ta
 // extractSymlink creates a symlink from a tar header.
 //
 //nolint:gosec // G305: Path validated by caller via PathValidator
-func extractSymlink(destDir string, header *tar.Header) error {
+func extractSymlink(destDir string, header *tar.Header, state *extractState) error {
 	fullPath := filepath.Join(destDir, header.Name)
 
-	// Best-effort TOCTOU check on parent
-	parent := filepath.Dir(fullPath)
-	if err := validateNotSymlink(parent); err != nil {
-		return err
-	}
-
-	// Create parent directories
-	if err := os.MkdirAll(parent, 0o750); err != nil {
+	parent := parentDir(fullPath)
+	if err := ensureParentDir(parent, state); err != nil {
 		return err
 	}
 
@@ -255,4 +256,48 @@ func validateNotSymlink(path string) error {
 		return core.ErrPathTraversal
 	}
 	return nil
+}
+
+func ensureParentDir(parent string, state *extractState) error {
+	if err := validateNotSymlinkCached(parent, state); err != nil {
+		return err
+	}
+	return mkdirAllCached(parent, 0o750, state)
+}
+
+func validateNotSymlinkCached(path string, state *extractState) error {
+	if _, ok := state.validatedDirs[path]; ok {
+		return nil
+	}
+	if err := validateNotSymlink(path); err != nil {
+		return err
+	}
+	state.validatedDirs[path] = struct{}{}
+	return nil
+}
+
+func mkdirAllCached(path string, mode fs.FileMode, state *extractState) error {
+	if _, ok := state.createdDirs[path]; ok {
+		return nil
+	}
+	if err := os.MkdirAll(path, mode); err != nil {
+		return err
+	}
+	state.createdDirs[path] = struct{}{}
+	state.validatedDirs[path] = struct{}{}
+	return nil
+}
+
+func parentDir(path string) string {
+	if runtime.GOOS == osWindows {
+		return filepath.Dir(path)
+	}
+	idx := strings.LastIndexByte(path, os.PathSeparator)
+	if idx == -1 {
+		return "."
+	}
+	if idx == 0 {
+		return string(os.PathSeparator)
+	}
+	return path[:idx]
 }

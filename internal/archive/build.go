@@ -172,6 +172,7 @@ func writeTarToPipe(ctx context.Context, pw *io.PipeWriter, src fs.FS) error {
 	}()
 
 	tw := tar.NewWriter(pw)
+	buf := make([]byte, copyBufferSize)
 
 	tarErr = fs.WalkDir(src, ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -180,7 +181,7 @@ func writeTarToPipe(ctx context.Context, pw *io.PipeWriter, src fs.FS) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return addEntryToTar(ctx, tw, src, path, d)
+		return addEntryToTar(ctx, tw, src, path, d, buf)
 	})
 	if tarErr != nil {
 		return tarErr
@@ -204,7 +205,7 @@ type lstatFS interface {
 }
 
 // addEntryToTar adds a single filesystem entry to the tar writer.
-func addEntryToTar(ctx context.Context, tw *tar.Writer, src fs.FS, path string, d fs.DirEntry) error {
+func addEntryToTar(ctx context.Context, tw *tar.Writer, src fs.FS, path string, d fs.DirEntry, buf []byte) error {
 	// Prefer Lstat when available to avoid following symlinks.
 	if lfs, ok := src.(lstatFS); ok {
 		info, err := lfs.Lstat(path)
@@ -214,7 +215,7 @@ func addEntryToTar(ctx context.Context, tw *tar.Writer, src fs.FS, path string, 
 		if info.Mode()&fs.ModeSymlink != 0 {
 			return addSymlinkToTar(tw, src, path, info)
 		}
-		return addFileInfoEntry(ctx, tw, src, path, info)
+		return addFileInfoEntry(ctx, tw, src, path, info, buf)
 	}
 
 	// Handle symlinks specially to avoid following the link
@@ -228,7 +229,7 @@ func addEntryToTar(ctx context.Context, tw *tar.Writer, src fs.FS, path string, 
 		return err
 	}
 
-	return addFileInfoEntry(ctx, tw, src, path, info)
+	return addFileInfoEntry(ctx, tw, src, path, info, buf)
 }
 
 // addSymlinkToTar adds a symlink entry to the tar writer.
@@ -259,7 +260,7 @@ func addSymlinkToTar(tw *tar.Writer, src fs.FS, path string, info fs.FileInfo) e
 	return tw.WriteHeader(header)
 }
 
-func addFileInfoEntry(ctx context.Context, tw *tar.Writer, src fs.FS, path string, info fs.FileInfo) error {
+func addFileInfoEntry(ctx context.Context, tw *tar.Writer, src fs.FS, path string, info fs.FileInfo, buf []byte) error {
 	header, err := tar.FileInfoHeader(info, "")
 	if err != nil {
 		return err
@@ -272,7 +273,7 @@ func addFileInfoEntry(ctx context.Context, tw *tar.Writer, src fs.FS, path strin
 
 	// Copy file content for regular files
 	if info.Mode().IsRegular() {
-		if err := copyFileToTar(ctx, src, path, tw); err != nil {
+		if err := copyFileToTar(ctx, src, path, tw, buf); err != nil {
 			return err
 		}
 	}
@@ -305,13 +306,13 @@ func readLink(src fs.FS, path string) (string, error) {
 
 // copyFileToTar copies a file from the filesystem to the tar writer.
 // It handles closing the file immediately to avoid FD leaks in loops.
-// Context cancellation is checked every 32KB during the copy.
-func copyFileToTar(ctx context.Context, src fs.FS, path string, tw *tar.Writer) error {
+// Context cancellation is checked every 128KB during the copy.
+func copyFileToTar(ctx context.Context, src fs.FS, path string, tw *tar.Writer, buf []byte) error {
 	f, err := src.Open(path)
 	if err != nil {
 		return err
 	}
-	copyErr := copyWithContext(ctx, tw, f)
+	copyErr := copyWithContext(ctx, tw, f, buf)
 	closeErr := f.Close()
 	if copyErr != nil {
 		return copyErr

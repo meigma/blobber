@@ -341,7 +341,7 @@ func TestBuild_WithSymlinks(t *testing.T) {
 	// Create symlink pointing to target
 	linkPath := filepath.Join(tmpDir, "link.txt")
 	if symlinkErr := os.Symlink("target.txt", linkPath); symlinkErr != nil {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			t.Skipf("skipping symlink test on windows: %v", symlinkErr)
 		}
 		require.NoError(t, symlinkErr, "failed to create symlink")
