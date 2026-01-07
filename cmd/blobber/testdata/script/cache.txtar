@@ -1,0 +1,39 @@
+# Test cache commands
+
+# Create a temporary cache directory
+mkdir $WORK/cache
+
+# Test cache info on empty cache
+exec blobber cache info --dir $WORK/cache
+stdout 'Cache is empty'
+! stderr .
+
+# Push and pull something to populate the cache
+exec blobber push --insecure testdata $REGISTRY/cli-test/cache:v1
+! stderr .
+
+# Configure cache and pull to populate it
+exec blobber pull --insecure $REGISTRY/cli-test/cache:v1 $WORK/output
+! stderr .
+
+# Now test with the default cache (which won't have data since we didn't use --cache-dir in pull)
+# Instead, let's test the cache clear and prune with specific options
+
+# Test prune requires at least one option
+! exec blobber cache prune --dir $WORK/cache
+stderr 'at least one of --max-size or --max-age is required'
+
+# Test prune with no entries
+exec blobber cache prune --dir $WORK/cache --max-age 1h
+stdout 'No entries to prune'
+! stderr .
+
+# Test clear on empty cache
+exec blobber cache clear --dir $WORK/cache --yes
+stdout 'Cache is already empty'
+! stderr .
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+test data file

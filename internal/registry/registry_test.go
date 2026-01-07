@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -616,7 +617,7 @@ func TestPullRange_WithMockRegistry(t *testing.T) {
 
 			// Return partial content
 			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Header().Set("Content-Range", rangeHeader)
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(layerContent)))
 			w.WriteHeader(http.StatusPartialContent)
 			w.Write(layerContent[start : end+1])
 		},

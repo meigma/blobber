@@ -26,10 +26,11 @@ type Image struct {
 	mu     sync.RWMutex
 	closed bool
 
-	ref      string
-	blobFile *os.File        // temp file with blob data
-	blobSize int64           // size of the blob
-	esr      *estargz.Reader // cached estargz reader
+	ref        string
+	blobFile   *os.File        // temp file with blob data (non-cached path)
+	blobHandle BlobHandle      // cached blob handle (cached path)
+	blobSize   int64           // size of the blob
+	esr        *estargz.Reader // cached estargz reader
 
 	validator PathValidator
 	logger    *slog.Logger
@@ -89,6 +90,31 @@ func NewImageFromBlob(ref string, blob io.Reader, size int64, validator PathVali
 	}, nil
 }
 
+// NewImageFromHandle creates a new Image from a BlobHandle.
+// Used when opening images from cache, where the blob is already on disk.
+//
+// This is a low-level constructor primarily for cache integration. Most users
+// should use Client.OpenImage instead.
+func NewImageFromHandle(ref string, handle BlobHandle, validator PathValidator, logger *slog.Logger) (*Image, error) {
+	size := handle.Size()
+
+	// Create estargz reader directly from the handle (which implements io.ReaderAt)
+	sr := io.NewSectionReader(handle, 0, size)
+	esr, err := estargz.Open(sr, estargz.WithDecompressors(&zstdchunked.Decompressor{}))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidArchive, err)
+	}
+
+	return &Image{
+		ref:        ref,
+		blobHandle: handle,
+		blobSize:   size,
+		esr:        esr,
+		validator:  validator,
+		logger:     logger,
+	}, nil
+}
+
 // Close releases resources associated with the image.
 // After Close, all other methods will return an error.
 func (img *Image) Close() error {
@@ -100,13 +126,22 @@ func (img *Image) Close() error {
 	}
 	img.closed = true
 
-	path := img.blobFile.Name()
-	closeErr := img.blobFile.Close()
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		img.logger.Warn("failed to remove temp file", "path", path, "error", err)
+	// Handle cached path (blobHandle)
+	if img.blobHandle != nil {
+		return img.blobHandle.Close()
 	}
 
-	return closeErr
+	// Handle non-cached path (blobFile)
+	if img.blobFile != nil {
+		path := img.blobFile.Name()
+		closeErr := img.blobFile.Close()
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			img.logger.Warn("failed to remove temp file", "path", path, "error", err)
+		}
+		return closeErr
+	}
+
+	return nil
 }
 
 // List returns the file listing of the image.

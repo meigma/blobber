@@ -12,8 +12,8 @@ import (
 
 // Sentinel errors for registry operations.
 var (
-	// ErrRangeNotSupported indicates the registry does not support Range requests.
-	ErrRangeNotSupported = errors.New("registry does not support range requests")
+	// ErrRangeNotSupported is an alias to core.ErrRangeNotSupported for use within this package.
+	ErrRangeNotSupported = core.ErrRangeNotSupported
 
 	// ErrMultipleLayers indicates the manifest has multiple layers, which is unexpected for blobber images.
 	ErrMultipleLayers = errors.New("manifest has multiple layers; blobber expects exactly one layer")

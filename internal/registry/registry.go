@@ -201,13 +201,15 @@ func (r *orasRegistry) Pull(ctx context.Context, ref string) (io.ReadCloser, int
 	}
 
 	// Resolve layer descriptor.
-	layerDesc, err := r.resolveLayerDescriptor(ctx, repo, parsedRef.Reference)
+	layerDesc, manifestDigest, platform, err := r.resolveLayerDescriptorFull(ctx, repo, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
 			return nil, 0, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
 		}
 		return nil, 0, err
 	}
+	_ = manifestDigest // unused in Pull, but available
+	_ = platform
 
 	// Fetch the layer blob.
 	blobReader, err := repo.Blobs().Fetch(ctx, layerDesc)
@@ -216,6 +218,74 @@ func (r *orasRegistry) Pull(ctx context.Context, ref string) (io.ReadCloser, int
 	}
 
 	return blobReader, layerDesc.Size, nil
+}
+
+// ResolveLayer resolves a reference to its layer descriptor.
+func (r *orasRegistry) ResolveLayer(ctx context.Context, ref string) (core.LayerDescriptor, error) {
+	if err := ctx.Err(); err != nil {
+		return core.LayerDescriptor{}, err
+	}
+
+	parsedRef, err := registry.ParseReference(ref)
+	if err != nil {
+		return core.LayerDescriptor{}, core.ErrInvalidRef
+	}
+
+	repo, err := r.newRepository(parsedRef)
+	if err != nil {
+		return core.LayerDescriptor{}, fmt.Errorf("create repository: %w", err)
+	}
+
+	layerDesc, manifestDigest, platform, err := r.resolveLayerDescriptorFull(ctx, repo, parsedRef.Reference)
+	if err != nil {
+		if errors.Is(err, ErrMultipleLayers) {
+			return core.LayerDescriptor{}, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
+		}
+		return core.LayerDescriptor{}, err
+	}
+
+	return core.LayerDescriptor{
+		Digest:         layerDesc.Digest.String(),
+		Size:           layerDesc.Size,
+		MediaType:      layerDesc.MediaType,
+		ManifestDigest: manifestDigest,
+		Platform:       platform,
+	}, nil
+}
+
+// FetchBlob fetches a blob by its descriptor.
+func (r *orasRegistry) FetchBlob(ctx context.Context, ref string, desc core.LayerDescriptor) (io.ReadCloser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	parsedRef, err := registry.ParseReference(ref)
+	if err != nil {
+		return nil, core.ErrInvalidRef
+	}
+
+	repo, err := r.newRepository(parsedRef)
+	if err != nil {
+		return nil, fmt.Errorf("create repository: %w", err)
+	}
+
+	blobDigest, err := digest.Parse(desc.Digest)
+	if err != nil {
+		return nil, fmt.Errorf("parse digest: %w", err)
+	}
+
+	ociDesc := ocispec.Descriptor{
+		MediaType: desc.MediaType,
+		Digest:    blobDigest,
+		Size:      desc.Size,
+	}
+
+	blobReader, err := repo.Blobs().Fetch(ctx, ociDesc)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return blobReader, nil
 }
 
 // PullRange fetches a byte range from the layer blob.
@@ -250,7 +320,7 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 	}
 
 	// Resolve layer descriptor.
-	layerDesc, err := r.resolveLayerDescriptor(ctx, repo, parsedRef.Reference)
+	layerDesc, _, _, err := r.resolveLayerDescriptorFull(ctx, repo, parsedRef.Reference)
 	if err != nil {
 		if errors.Is(err, ErrMultipleLayers) {
 			return nil, fmt.Errorf("%s: %w: %w", ref, core.ErrInvalidArchive, err)
@@ -258,6 +328,44 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 		return nil, err
 	}
 
+	return r.fetchRange(ctx, parsedRef, repo, layerDesc.Digest.String(), offset, length)
+}
+
+// FetchBlobRange fetches a byte range from a blob by its descriptor.
+// Used for resuming partial downloads and selective file access.
+func (r *orasRegistry) FetchBlobRange(ctx context.Context, ref string, desc core.LayerDescriptor, offset, length int64) (io.ReadCloser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	// Validate range parameters.
+	if offset < 0 {
+		return nil, errors.New("offset must be non-negative")
+	}
+	if length <= 0 {
+		return nil, errors.New("length must be positive")
+	}
+	if offset > math.MaxInt64-length {
+		return nil, errors.New("range overflow: offset + length exceeds maximum")
+	}
+
+	parsedRef, err := registry.ParseReference(ref)
+	if err != nil {
+		return nil, core.ErrInvalidRef
+	}
+
+	repo, err := r.newRepository(parsedRef)
+	if err != nil {
+		return nil, fmt.Errorf("create repository: %w", err)
+	}
+
+	return r.fetchRange(ctx, parsedRef, repo, desc.Digest, offset, length)
+}
+
+// fetchRange performs the actual HTTP range request.
+//
+//nolint:gocyclo // Range request has multiple response handling paths
+func (r *orasRegistry) fetchRange(ctx context.Context, parsedRef registry.Reference, repo *remote.Repository, blobDigest string, offset, length int64) (io.ReadCloser, error) {
 	// Construct blob URL for range request.
 	scheme := "https"
 	if r.plainHTTP {
@@ -267,7 +375,7 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 		Scheme: scheme,
 		Host:   parsedRef.Registry,
 	}
-	blobURL = blobURL.JoinPath("v2", parsedRef.Repository, "blobs", layerDesc.Digest.String())
+	blobURL = blobURL.JoinPath("v2", parsedRef.Repository, "blobs", blobDigest)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, blobURL.String(), http.NoBody)
 	if err != nil {
@@ -286,7 +394,11 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 	// Check for successful response.
 	switch resp.StatusCode {
 	case http.StatusPartialContent:
-		// Success - registry supports Range requests.
+		// Validate Content-Range header
+		if err := validateContentRange(resp.Header.Get("Content-Range"), offset, length); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("invalid Content-Range: %w", err)
+		}
 		return resp.Body, nil
 	case http.StatusOK:
 		// Registry ignored Range header and returned full blob.
@@ -302,6 +414,38 @@ func (r *orasRegistry) PullRange(ctx context.Context, ref string, offset, length
 		resp.Body.Close()
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
+}
+
+// validateContentRange validates the Content-Range header against expected values.
+// Format: "bytes <start>-<end>/<total>" or "bytes <start>-<end>/*"
+func validateContentRange(header string, expectedOffset, expectedLength int64) error {
+	if header == "" {
+		// Some servers don't return Content-Range; accept this
+		return nil
+	}
+
+	// Parse "bytes <start>-<end>/<total>"
+	var start, end int64
+	var total string
+
+	// Try parsing with total (ignoring parse error since we check n)
+	n, err := fmt.Sscanf(header, "bytes %d-%d/%s", &start, &end, &total)
+	if n < 2 || (err != nil && n < 2) {
+		return fmt.Errorf("malformed Content-Range header: %s", header)
+	}
+
+	// Validate start offset matches
+	if start != expectedOffset {
+		return fmt.Errorf("start offset mismatch: expected %d, got %d", expectedOffset, start)
+	}
+
+	// Validate length (end is inclusive, so length = end - start + 1)
+	actualLength := end - start + 1
+	if actualLength != expectedLength {
+		return fmt.Errorf("length mismatch: expected %d, got %d", expectedLength, actualLength)
+	}
+
+	return nil
 }
 
 // WithCredentialStore sets the credential store.
@@ -351,54 +495,63 @@ func (r *orasRegistry) newRepository(ref registry.Reference) (*remote.Repository
 	return repo, nil
 }
 
-// resolveLayerDescriptor fetches the manifest and returns the layer descriptor.
+// resolveLayerDescriptorFull fetches the manifest and returns the layer descriptor,
+// manifest digest, and platform string.
 // Handles both single-arch manifests and multi-arch manifest lists (OCI index).
 // Returns an error if the manifest has multiple layers, as blobber images have exactly one.
-func (r *orasRegistry) resolveLayerDescriptor(ctx context.Context, repo *remote.Repository, reference string) (ocispec.Descriptor, error) {
+//
+//nolint:gocritic // unnamedResult: using descriptive variable names in function body instead
+func (r *orasRegistry) resolveLayerDescriptorFull(ctx context.Context, repo *remote.Repository, reference string) (ocispec.Descriptor, string, string, error) {
 	desc, manifestReader, err := repo.Manifests().FetchReference(ctx, reference)
 	if err != nil {
-		return ocispec.Descriptor{}, mapError(err)
+		return ocispec.Descriptor{}, "", "", mapError(err)
 	}
 	defer manifestReader.Close()
 
 	manifestData, err := io.ReadAll(manifestReader)
 	if err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("read manifest: %w", err)
+		return ocispec.Descriptor{}, "", "", fmt.Errorf("read manifest: %w", err)
 	}
 
 	// Check if this is an OCI index (multi-arch manifest list).
 	if isIndex(desc.MediaType) {
-		return r.resolveFromIndex(ctx, repo, manifestData)
+		return r.resolveFromIndexFull(ctx, repo, manifestData)
 	}
 
 	// Single-arch manifest - decode directly.
 	var manifest ocispec.Manifest
 	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("decode manifest: %w", err)
+		return ocispec.Descriptor{}, "", "", fmt.Errorf("decode manifest: %w", err)
 	}
 
 	if len(manifest.Layers) == 0 {
-		return ocispec.Descriptor{}, core.ErrNotFound
+		return ocispec.Descriptor{}, "", "", core.ErrNotFound
 	}
 
 	if len(manifest.Layers) > 1 {
-		return ocispec.Descriptor{}, ErrMultipleLayers
+		return ocispec.Descriptor{}, "", "", ErrMultipleLayers
 	}
 
-	return manifest.Layers[0], nil
+	// For single-arch manifests, use runtime platform
+	platform := runtime.GOOS + "/" + runtime.GOARCH
+
+	return manifest.Layers[0], desc.Digest.String(), platform, nil
 }
 
-// resolveFromIndex selects a manifest from an OCI index and returns its layer descriptor.
+// resolveFromIndexFull selects a manifest from an OCI index and returns its layer descriptor,
+// manifest digest, and platform string.
 // Prefers the current runtime platform, falls back to the first manifest if not found.
 // Returns an error if the selected manifest has multiple layers.
-func (r *orasRegistry) resolveFromIndex(ctx context.Context, repo *remote.Repository, indexData []byte) (ocispec.Descriptor, error) {
+//
+//nolint:gocritic // unnamedResult: using descriptive variable names in function body instead
+func (r *orasRegistry) resolveFromIndexFull(ctx context.Context, repo *remote.Repository, indexData []byte) (ocispec.Descriptor, string, string, error) {
 	var index ocispec.Index
 	if err := json.Unmarshal(indexData, &index); err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("decode index: %w", err)
+		return ocispec.Descriptor{}, "", "", fmt.Errorf("decode index: %w", err)
 	}
 
 	if len(index.Manifests) == 0 {
-		return ocispec.Descriptor{}, core.ErrNotFound
+		return ocispec.Descriptor{}, "", "", core.ErrNotFound
 	}
 
 	// Find a suitable manifest - prefer current runtime platform.
@@ -415,27 +568,38 @@ func (r *orasRegistry) resolveFromIndex(ctx context.Context, repo *remote.Reposi
 		selected = &index.Manifests[0]
 	}
 
+	// Build platform string
+	var platform string
+	if selected.Platform != nil {
+		platform = selected.Platform.OS + "/" + selected.Platform.Architecture
+		if selected.Platform.Variant != "" {
+			platform += "/" + selected.Platform.Variant
+		}
+	} else {
+		platform = runtime.GOOS + "/" + runtime.GOARCH
+	}
+
 	// Fetch the selected manifest.
 	manifestReader, err := repo.Manifests().Fetch(ctx, *selected)
 	if err != nil {
-		return ocispec.Descriptor{}, mapError(err)
+		return ocispec.Descriptor{}, "", "", mapError(err)
 	}
 	defer manifestReader.Close()
 
 	var manifest ocispec.Manifest
 	if err := json.NewDecoder(manifestReader).Decode(&manifest); err != nil {
-		return ocispec.Descriptor{}, fmt.Errorf("decode manifest: %w", err)
+		return ocispec.Descriptor{}, "", "", fmt.Errorf("decode manifest: %w", err)
 	}
 
 	if len(manifest.Layers) == 0 {
-		return ocispec.Descriptor{}, core.ErrNotFound
+		return ocispec.Descriptor{}, "", "", core.ErrNotFound
 	}
 
 	if len(manifest.Layers) > 1 {
-		return ocispec.Descriptor{}, ErrMultipleLayers
+		return ocispec.Descriptor{}, "", "", ErrMultipleLayers
 	}
 
-	return manifest.Layers[0], nil
+	return manifest.Layers[0], selected.Digest.String(), platform, nil
 }
 
 // isIndex returns true if the media type indicates an OCI index or Docker manifest list.

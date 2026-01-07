@@ -38,6 +38,9 @@ var (
 
 	// ErrClosed indicates an operation was attempted on a closed resource.
 	ErrClosed = errors.New("blobber: resource closed")
+
+	// ErrRangeNotSupported indicates the registry does not support range requests.
+	ErrRangeNotSupported = errors.New("blobber: range requests not supported")
 )
 
 // ExtractLimits defines safety limits for extraction.
@@ -162,6 +165,20 @@ type Registry interface {
 	// PullRange fetches a byte range from the layer blob.
 	// Used for selective file retrieval from eStargz.
 	PullRange(ctx context.Context, ref string, offset, length int64) (io.ReadCloser, error)
+
+	// ResolveLayer resolves a reference to its layer descriptor.
+	// Returns the layer metadata without fetching the blob content.
+	// Used by the cache to check for hits before downloading.
+	ResolveLayer(ctx context.Context, ref string) (LayerDescriptor, error)
+
+	// FetchBlob fetches a blob by its descriptor.
+	// Unlike Pull, this uses a known digest rather than resolving a ref.
+	FetchBlob(ctx context.Context, ref string, desc LayerDescriptor) (io.ReadCloser, error)
+
+	// FetchBlobRange fetches a byte range from a blob by its descriptor.
+	// Used for resuming partial downloads and selective file access.
+	// Returns ErrRangeNotSupported if the registry doesn't support range requests.
+	FetchBlobRange(ctx context.Context, ref string, desc LayerDescriptor, offset, length int64) (io.ReadCloser, error)
 }
 
 // ArchiveBuilder creates eStargz blobs from files.
@@ -220,3 +237,44 @@ type PathValidator interface {
 //
 // Use GzipCompression() or ZstdCompression() for built-in implementations.
 type Compression = estargz.Compression
+
+// LayerDescriptor captures the resolved layer metadata plus platform context.
+// Used as the cache key and for blob retrieval operations.
+type LayerDescriptor struct {
+	// Digest is the SHA256 digest of the compressed blob (sha256:...).
+	// This is the primary cache key.
+	Digest string
+	// Size is the total blob size in bytes.
+	Size int64
+	// MediaType is the OCI media type of the layer.
+	MediaType string
+	// ManifestDigest is the digest of the manifest that contained this layer.
+	// Used for tag drift detection during partial caching.
+	ManifestDigest string
+	// Platform is the target platform in os/arch[/variant] format.
+	Platform string
+}
+
+// BlobHandle provides random access to a cached or remote blob.
+// Implements io.ReaderAt for estargz compatibility.
+type BlobHandle interface {
+	io.ReaderAt
+	io.Closer
+	// Size returns the total blob size in bytes.
+	Size() int64
+	// Complete reports whether the entire blob is available locally.
+	Complete() bool
+}
+
+// BlobSource provides access to blobs, either from cache or network.
+// The cache implementation wraps a fallback source (typically the registry).
+type BlobSource interface {
+	// Open returns a BlobHandle for random access to the blob.
+	// The ref parameter is used for fetching missing ranges during resume.
+	// The handle must be closed when done.
+	Open(ctx context.Context, ref string, desc LayerDescriptor) (BlobHandle, error)
+	// OpenStream returns a streaming reader for the blob.
+	// The ref parameter is used for fetching missing ranges during resume.
+	// More efficient for sequential reads like extraction.
+	OpenStream(ctx context.Context, ref string, desc LayerDescriptor) (io.ReadCloser, error)
+}
