@@ -3,3 +3,9 @@
 /AGENTS.md
 profiles
 tmp
+
+# Build artifacts
+bin/
+dist/
+coverage.out
+coverage.html

@@ -15,6 +15,13 @@ import (
 	"github.com/gilmanlab/blobber"
 )
 
+// Build information set via ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 // Global flags.
 var (
 	insecure bool
@@ -35,6 +42,7 @@ without downloading entire images.`,
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&insecure, "insecure", false, "Allow insecure registry connections")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose debug logging")
+	rootCmd.Version = version
 }
 
 // Execute runs the root command.

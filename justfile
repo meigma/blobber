@@ -135,6 +135,18 @@ docs-build:
 docs-serve:
     cd docs && npm run serve
 
+# ---------- Release ----------
+
+# Check goreleaser configuration
+[group('release')]
+release-check:
+    goreleaser check
+
+# Build a snapshot release locally (no publish)
+[group('release')]
+release-snapshot:
+    goreleaser release --snapshot --clean
+
 # ---------- Private Helpers ----------
 
 [private]

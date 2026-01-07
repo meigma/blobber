@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: blobber
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: blobber
+    main: ./cmd/blobber
+    binary: blobber
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/gilmanlab/blobber/cmd/blobber/cli.version={{.Version}}
+      - -X github.com/gilmanlab/blobber/cmd/blobber/cli.commit={{.ShortCommit}}
+      - -X github.com/gilmanlab/blobber/cmd/blobber/cli.date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+sboms:
+  - artifacts: archive
+    documents:
+      - "${artifact}.sbom.spdx.json"
+    cmd: syft
+    args:
+      - "${artifact}"
+      - "--output"
+      - "spdx-json=${document}"
+
+signs:
+  - id: checksum
+    cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+
+  - id: sbom
+    cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: sbom
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^feat(\(.+\))?:'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^fix(\(.+\))?:'
+      order: 1
+    - title: Refactoring
+      regexp: '^refactor(\(.+\))?:'
+      order: 2
+    - title: Others
+      order: 999
+
+brews:
+  - repository:
+      owner: GilmanLab
+      name: tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/gilmanlab/blobber"
+    description: "Push and pull files to OCI registries"
+    license: "MIT"
+    skip_upload: auto
+    commit_msg_template: "brew: update {{ .ProjectName }} to {{ .Tag }}"
+    test: |
+      system "#{bin}/blobber", "version"
+    install: |
+      bin.install "blobber"
+
+release:
+  github:
+    owner: gilmanlab
+    name: blobber
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"
+  footer: |
+    ## Verification
+
+    Verify the checksums signature:
+    ```bash
+    cosign verify-blob \
+      --certificate checksums.txt.pem \
+      --signature checksums.txt.sig \
+      --certificate-identity-regexp="https://github.com/gilmanlab/blobber" \
+      --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+      checksums.txt
+    ```
+
+    Verify an SBOM signature:
+    ```bash
+    cosign verify-blob \
+      --certificate blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.pem \
+      --signature blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.sig \
+      --certificate-identity-regexp="https://github.com/gilmanlab/blobber" \
+      --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+      blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json
+    ```
+
+    Verify artifact integrity:
+    ```bash
+    sha256sum -c checksums.txt --ignore-missing
+    ```
