@@ -113,6 +113,28 @@ registry-logs:
 ci: lint test build
     @echo "All CI checks passed"
 
+# ---------- Docs ----------
+
+# Install docs dependencies
+[group('docs')]
+docs-install:
+    cd docs && npm install
+
+# Start docs development server
+[group('docs')]
+docs-dev:
+    cd docs && npm start
+
+# Build docs for production
+[group('docs')]
+docs-build:
+    cd docs && npm run build
+
+# Serve production docs build locally
+[group('docs')]
+docs-serve:
+    cd docs && npm run serve
+
 # ---------- Private Helpers ----------
 
 [private]

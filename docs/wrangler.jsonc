@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "blobber",
+  "compatibility_date": "2026-01-06",
+  "assets": {
+    "directory": "./build"
+  }
+}

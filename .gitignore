@@ -1,9 +1,5 @@
-INIT.md
-ARCHITECTURE.md
-API.md
-.claude
-CLAUDE.md
-AGENTS.md
-CACHE.md
+/.claude
+/CLAUDE.md
+/AGENTS.md
 profiles
 tmp
