@@ -61,28 +61,15 @@ func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, erro
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and the blob is re-downloaded (self-healing).
 func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
-	c.mu.RLock()
-	blobPath := c.blobPath(desc.Digest)
-	entryPath := c.entryPath(desc.Digest)
-	c.mu.RUnlock()
-
-	// Check if blob exists and is complete
-	entry, err := loadEntry(entryPath)
-	if err == nil && entry.Complete && entry.Verified {
-		// Cache hit - try to open existing file
+	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	if entry != nil {
 		c.logger.Debug("cache hit", "digest", desc.Digest)
 		handle, openErr := c.openCachedBlob(blobPath, entry)
 		if openErr == nil {
-			// Update last accessed time
 			c.touchEntry(entryPath, entry)
 			return handle, nil
 		}
-		// Blob file missing or corrupt - evict and re-download
-		c.logger.Debug("cache hit but blob missing/corrupt, self-healing", "digest", desc.Digest, "error", openErr)
-		if evictErr := c.Evict(desc.Digest); evictErr != nil {
-			c.logger.Debug("failed to evict corrupt entry", "error", evictErr)
-		}
-		// Fall through to download
+		c.selfHealEvict(desc.Digest, openErr)
 	}
 
 	// Cache miss - download and cache the blob
@@ -92,7 +79,7 @@ func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor)
 	}
 
 	// Load the entry we just created
-	entry, err = loadEntry(entryPath)
+	entry, err := loadEntry(entryPath)
 	if err != nil {
 		return nil, fmt.Errorf("load entry after download: %w", err)
 	}
@@ -111,28 +98,15 @@ func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor)
 // Note: For cache misses, this blocks until the full download completes.
 // Use OpenStreamThrough for true streaming with concurrent cache population.
 func (c *Cache) OpenStream(ctx context.Context, ref string, desc core.LayerDescriptor) (io.ReadCloser, error) {
-	c.mu.RLock()
-	blobPath := c.blobPath(desc.Digest)
-	entryPath := c.entryPath(desc.Digest)
-	c.mu.RUnlock()
-
-	// Check if blob exists and is complete
-	entry, err := loadEntry(entryPath)
-	if err == nil && entry.Complete && entry.Verified {
-		// Cache hit - try to open existing file with size validation
+	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	if entry != nil {
 		c.logger.Debug("cache hit (stream)", "digest", desc.Digest)
 		f, openErr := c.openCachedBlobFile(blobPath, entry)
 		if openErr == nil {
-			// Update last accessed time
 			c.touchEntry(entryPath, entry)
 			return f, nil
 		}
-		// Blob file missing or corrupt - evict and re-download
-		c.logger.Debug("cache hit but blob missing/corrupt, self-healing", "digest", desc.Digest, "error", openErr)
-		if evictErr := c.Evict(desc.Digest); evictErr != nil {
-			c.logger.Debug("failed to evict corrupt entry", "error", evictErr)
-		}
-		// Fall through to download
+		c.selfHealEvict(desc.Digest, openErr)
 	}
 
 	// Cache miss - download and cache the blob, then return file reader
@@ -159,28 +133,15 @@ func (c *Cache) OpenStream(ctx context.Context, ref string, desc core.LayerDescr
 //
 // This preserves streaming extraction performance when caching is enabled.
 func (c *Cache) OpenStreamThrough(ctx context.Context, ref string, desc core.LayerDescriptor) (io.ReadCloser, error) {
-	c.mu.RLock()
-	blobPath := c.blobPath(desc.Digest)
-	entryPath := c.entryPath(desc.Digest)
-	c.mu.RUnlock()
-
-	// Check if blob exists and is complete
-	entry, err := loadEntry(entryPath)
-	if err == nil && entry.Complete && entry.Verified {
-		// Cache hit - try to open existing file with size validation
+	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	if entry != nil {
 		c.logger.Debug("cache hit (stream-through)", "digest", desc.Digest)
 		f, openErr := c.openCachedBlobFile(blobPath, entry)
 		if openErr == nil {
-			// Update last accessed time
 			c.touchEntry(entryPath, entry)
 			return f, nil
 		}
-		// Blob file missing or corrupt - evict and re-download
-		c.logger.Debug("cache hit but blob missing/corrupt, self-healing", "digest", desc.Digest, "error", openErr)
-		if evictErr := c.Evict(desc.Digest); evictErr != nil {
-			c.logger.Debug("failed to evict corrupt entry", "error", evictErr)
-		}
-		// Fall through to stream-through download
+		c.selfHealEvict(desc.Digest, openErr)
 	}
 
 	// Cache miss - stream from registry while writing to cache
@@ -327,27 +288,7 @@ func (cr *cachingReader) Close() error {
 func (c *Cache) Evict(digest string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	blobPath := c.blobPath(digest)
-	entryPath := c.entryPath(digest)
-	partialPath := blobPath + ".partial"
-
-	// Remove all files, ignoring "not exists" errors
-	var errs []error
-	if err := os.Remove(blobPath); err != nil && !os.IsNotExist(err) {
-		errs = append(errs, fmt.Errorf("remove blob: %w", err))
-	}
-	if err := os.Remove(partialPath); err != nil && !os.IsNotExist(err) {
-		errs = append(errs, fmt.Errorf("remove partial: %w", err))
-	}
-	if err := os.Remove(entryPath); err != nil && !os.IsNotExist(err) {
-		errs = append(errs, fmt.Errorf("remove entry: %w", err))
-	}
-
-	if len(errs) > 0 {
-		return errs[0]
-	}
-	return nil
+	return c.evictLocked(digest)
 }
 
 // touchEntry updates the LastAccessed time for a cache entry.
@@ -392,6 +333,33 @@ func (c *Cache) blobPath(digest string) string {
 func (c *Cache) entryPath(digest string) string {
 	hashStr := extractHash(digest)
 	return filepath.Join(c.path, "entries", "sha256", hashStr+".json")
+}
+
+// getPaths returns the blob and entry paths for a digest.
+func (c *Cache) getPaths(digest string) (blobPath, entryPath string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.blobPath(digest), c.entryPath(digest)
+}
+
+// loadCompleteEntry loads an entry if it's complete and verified.
+// Returns (entry, blobPath, entryPath) where entry is nil for cache misses.
+func (c *Cache) loadCompleteEntry(digest string) (entry *Entry, blobPath, entryPath string) {
+	blobPath, entryPath = c.getPaths(digest)
+	var err error
+	entry, err = loadEntry(entryPath)
+	if err == nil && entry.Complete && entry.Verified {
+		return entry, blobPath, entryPath
+	}
+	return nil, blobPath, entryPath
+}
+
+// selfHealEvict handles corrupt cache entries by evicting them.
+func (c *Cache) selfHealEvict(digest string, err error) {
+	c.logger.Debug("cache hit but blob missing/corrupt, self-healing", "digest", digest, "error", err)
+	if evictErr := c.Evict(digest); evictErr != nil {
+		c.logger.Debug("failed to evict corrupt entry", "error", evictErr)
+	}
 }
 
 // openCachedBlob opens a cached blob file as a BlobHandle.
@@ -597,7 +565,7 @@ func (c *Cache) resumeDownload(ctx context.Context, ref string, desc core.LayerD
 		}
 
 		// Write to the correct offset in the file
-		written, writeErr := c.writeRange(f, rangeReader, gap.Offset, gap.Length)
+		written, writeErr := writeRangeToFile(f, rangeReader, gap.Offset, gap.Length)
 		rangeReader.Close()
 		if writeErr != nil {
 			c.savePartialProgress(entryPath, entry, updatedRanges, ref, desc)
@@ -650,11 +618,11 @@ func (c *Cache) resumeDownload(ctx context.Context, ref string, desc core.LayerD
 	return nil
 }
 
-// writeRange writes data from reader to file at the specified offset.
+// writeRangeToFile writes data from reader to file at the specified offset.
 // Returns the number of bytes written.
 // Uses LimitReader to prevent writing past expectedLength if the registry
 // returns more data than expected (e.g., 206 without Content-Range header).
-func (c *Cache) writeRange(f *os.File, reader io.Reader, offset, expectedLength int64) (int64, error) {
+func writeRangeToFile(f *os.File, reader io.Reader, offset, expectedLength int64) (int64, error) {
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return 0, fmt.Errorf("seek to offset: %w", err)
 	}
@@ -702,28 +670,15 @@ func (c *Cache) savePartialProgress(entryPath string, entry *Entry, ranges []Ran
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and lazy loading starts fresh (self-healing).
 func (c *Cache) OpenLazy(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
-	c.mu.RLock()
-	blobPath := c.blobPath(desc.Digest)
-	entryPath := c.entryPath(desc.Digest)
-	c.mu.RUnlock()
-
-	// Check if blob exists and is complete
-	entry, err := loadEntry(entryPath)
-	if err == nil && entry.Complete && entry.Verified {
-		// Cache hit - try to open existing file as regular handle
+	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	if entry != nil {
 		c.logger.Debug("lazy cache hit (complete)", "digest", desc.Digest)
 		handle, openErr := c.openCachedBlob(blobPath, entry)
 		if openErr == nil {
-			// Update last accessed time
 			c.touchEntry(entryPath, entry)
 			return handle, nil
 		}
-		// Blob file missing or corrupt - evict and start fresh
-		c.logger.Debug("lazy cache hit but blob missing/corrupt, self-healing", "digest", desc.Digest, "error", openErr)
-		if evictErr := c.Evict(desc.Digest); evictErr != nil {
-			c.logger.Debug("failed to evict corrupt entry", "error", evictErr)
-		}
-		// Fall through to create lazy handle
+		c.selfHealEvict(desc.Digest, openErr)
 	}
 
 	// Need lazy loading - create or open partial file
@@ -757,11 +712,9 @@ func (c *Cache) openLazyHandle(
 			MediaType: desc.MediaType,
 			Complete:  false,
 			Verified:  false,
-			Lazy:      true,
 			Ref:       ref,
 		}
 	} else {
-		entry.Lazy = true
 		entry.Ref = ref
 	}
 

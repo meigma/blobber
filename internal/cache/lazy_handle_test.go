@@ -471,11 +471,11 @@ func TestLazyHandle_Entry(t *testing.T) {
 		require.NoError(t, err)
 		handle.Close()
 
-		// Load entry and verify lazy flag
+		// Load entry and verify it was created
 		entryPath := filepath.Join(dir, "entries", "sha256", extractHash(digest)+".json")
 		entry, err := loadEntry(entryPath)
 		require.NoError(t, err)
-		assert.True(t, entry.Lazy)
+		assert.Equal(t, digest, entry.Digest)
 	})
 
 	t.Run("ranges are tracked in entry", func(t *testing.T) {

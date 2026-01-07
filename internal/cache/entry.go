@@ -34,9 +34,6 @@ type Entry struct {
 	Complete bool `json:"complete"`
 	// Verified indicates the digest was verified after download.
 	Verified bool `json:"verified"`
-	// Lazy indicates this entry uses lazy (on-demand) fetching.
-	// When true, ranges are fetched incrementally as ReadAt is called.
-	Lazy bool `json:"lazy,omitempty"`
 	// Ranges contains the byte ranges that have been downloaded.
 	// Only populated for partial downloads (Complete=false).
 	// Ranges are non-overlapping and sorted by offset.
@@ -45,10 +42,6 @@ type Entry struct {
 	CreatedAt time.Time `json:"created_at"`
 	// LastAccessed is when the blob was last accessed.
 	LastAccessed time.Time `json:"last_accessed"`
-	// Refs contains OCI refs that resolved to this digest.
-	Refs []string `json:"refs,omitempty"`
-	// ManifestDigests contains manifest digests for tag drift detection.
-	ManifestDigests []string `json:"manifest_digests,omitempty"`
 	// Ref is the OCI reference used to fetch this blob.
 	// Used for resuming partial downloads with range requests.
 	Ref string `json:"ref,omitempty"`

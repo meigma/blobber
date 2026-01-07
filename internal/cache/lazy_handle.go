@@ -116,7 +116,7 @@ func (h *lazyHandle) fetchMissingRanges(off, length int64) error {
 		}
 
 		// Write to file at the correct offset
-		written, writeErr := h.writeRange(reader, gap.Offset, gap.Length)
+		written, writeErr := writeRangeToFile(h.file, reader, gap.Offset, gap.Length)
 		reader.Close()
 		if writeErr != nil {
 			h.saveProgress()
@@ -138,29 +138,6 @@ func (h *lazyHandle) fetchMissingRanges(off, length int64) error {
 	// Save progress
 	h.saveProgress()
 	return nil
-}
-
-// writeRange writes data from reader to file at the specified offset.
-// Uses LimitReader to prevent writing past expectedLength if the registry
-// returns more data than expected (e.g., 206 without Content-Range header).
-func (h *lazyHandle) writeRange(reader io.Reader, offset, expectedLength int64) (int64, error) {
-	if _, err := h.file.Seek(offset, io.SeekStart); err != nil {
-		return 0, fmt.Errorf("seek to offset: %w", err)
-	}
-
-	// Limit reads to expectedLength to prevent corruption if registry
-	// returns more data than expected (e.g., 206 without Content-Range).
-	limitedReader := io.LimitReader(reader, expectedLength)
-	written, err := io.Copy(h.file, limitedReader)
-	if err != nil {
-		return written, fmt.Errorf("copy data: %w", err)
-	}
-
-	if written != expectedLength {
-		return written, fmt.Errorf("length mismatch: expected %d, got %d", expectedLength, written)
-	}
-
-	return written, nil
 }
 
 // verifyAndComplete verifies the full blob digest and marks as complete.
