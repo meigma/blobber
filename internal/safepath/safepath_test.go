@@ -436,18 +436,18 @@ func TestValidator_ValidateSymlink(t *testing.T) {
 			wantErr:  core.ErrPathTraversal,
 		},
 		{
-			name:     "absolute symlink within destDir",
+			name:     "absolute symlink rejected",
 			destDir:  "/tmp/extract",
 			linkPath: "link",
 			target:   "/subdir/file.txt",
-			wantErr:  nil,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
-			name:     "absolute symlink to root stays within",
+			name:     "absolute symlink to root rejected",
 			destDir:  "/tmp/extract",
 			linkPath: "link",
 			target:   "/",
-			wantErr:  nil,
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "symlink to destDir itself",
@@ -464,11 +464,18 @@ func TestValidator_ValidateSymlink(t *testing.T) {
 			wantErr:  core.ErrPathTraversal,
 		},
 		{
-			name:     "absolute symlink to deeply nested path",
+			name:     "absolute symlink to deeply nested path rejected",
 			destDir:  "/tmp/extract",
 			linkPath: "link",
 			target:   "/a/b/c/d/file.txt",
-			wantErr:  nil,
+			wantErr:  core.ErrPathTraversal,
+		},
+		{
+			name:     "backslash absolute symlink rejected",
+			destDir:  "/tmp/extract",
+			linkPath: "link",
+			target:   "\\etc\\passwd",
+			wantErr:  core.ErrPathTraversal,
 		},
 		{
 			name:     "invalid linkPath with traversal",

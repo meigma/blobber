@@ -114,11 +114,9 @@ func validateTotals(fileCount int, totalSize int64, limits core.ExtractLimits) e
 
 // ValidateSymlink checks if a symlink target is safe (stays within destDir).
 //
-// For absolute symlink targets, this function treats them as relative to destDir
-// (chroot-like behavior). For example, a symlink pointing to "/etc/passwd" inside
-// destDir="/tmp/extract" would resolve to "/tmp/extract/etc/passwd".
-//
-// Absolute targets with volume names or UNC paths (Windows) are rejected.
+// Absolute symlink targets are rejected outright to prevent symlinks that
+// escape the extraction directory. Relative targets are validated to ensure
+// they resolve to a path within destDir.
 //
 // This performs lexical validation only - it does not follow existing symlinks
 // on the filesystem.
@@ -133,30 +131,25 @@ func (v *Validator) ValidateSymlink(destDir, linkPath, target string) error {
 		return core.ErrPathTraversal
 	}
 
+	// Reject absolute symlink targets entirely.
+	// These would point outside the extraction directory when dereferenced.
+	if filepath.IsAbs(target) || strings.HasPrefix(target, "/") || strings.HasPrefix(target, "\\") {
+		return core.ErrPathTraversal
+	}
+
+	// Reject targets with Windows volume names (e.g., "C:foo").
+	if filepath.VolumeName(target) != "" {
+		return core.ErrPathTraversal
+	}
+
 	absDestDir, err := filepath.Abs(destDir)
 	if err != nil {
 		return core.ErrPathTraversal
 	}
 
-	// Build the target path to validate.
-	var targetPath string
-	if filepath.IsAbs(target) {
-		// Reject absolute targets with volume/UNC prefix.
-		if filepath.VolumeName(target) != "" {
-			return core.ErrPathTraversal
-		}
-		// Absolute targets are treated as relative to destDir (chroot-like).
-		// Strip leading separators to make it relative.
-		relTarget := strings.TrimLeft(target, "/\\")
-		targetPath = filepath.Join(absDestDir, relTarget)
-	} else {
-		// Relative target: resolve relative to the link's directory within destDir.
-		linkDir := filepath.Dir(filepath.Join(absDestDir, linkPath))
-		targetPath = filepath.Join(linkDir, target)
-	}
-
-	// Clean the path to resolve .. components.
-	targetPath = filepath.Clean(targetPath)
+	// Relative target: resolve relative to the link's directory within destDir.
+	linkDir := filepath.Dir(filepath.Join(absDestDir, linkPath))
+	targetPath := filepath.Clean(filepath.Join(linkDir, target))
 
 	// Check that the resolved target stays within destDir.
 	if !isWithinDir(targetPath, absDestDir) {
