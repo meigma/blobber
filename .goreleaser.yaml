@@ -58,10 +58,13 @@ sboms:
 
 signs:
   - id: checksum
-    cmd: cosign
+    cmd: flock
     signature: "${artifact}.sig"
     certificate: "${artifact}.pem"
     args:
+      - "--exclusive"
+      - "/tmp/cosign.lock"
+      - "cosign"
       - "sign-blob"
       - "--output-signature=${signature}"
       - "--output-certificate=${certificate}"
@@ -70,10 +73,13 @@ signs:
     artifacts: checksum
 
   - id: sbom
-    cmd: cosign
+    cmd: flock
     signature: "${artifact}.sig"
     certificate: "${artifact}.pem"
     args:
+      - "--exclusive"
+      - "/tmp/cosign.lock"
+      - "cosign"
       - "sign-blob"
       - "--output-signature=${signature}"
       - "--output-certificate=${certificate}"
