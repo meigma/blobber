@@ -11,10 +11,10 @@ const config: Config = {
     v4: true,
   },
 
-  url: "https://blobber.gilman.io",
+  url: "https://blobber.meigma.dev",
   baseUrl: "/",
 
-  organizationName: "gilmanlab",
+  organizationName: "meigma",
   projectName: "blobber",
 
   onBrokenLinks: "throw",
@@ -32,7 +32,7 @@ const config: Config = {
         docs: {
           sidebarPath: "./sidebars.ts",
           routeBasePath: "/",
-          editUrl: "https://github.com/gilmanlab/blobber/edit/master/docs/",
+          editUrl: "https://github.com/meigma/blobber/edit/master/docs/",
         },
         blog: false,
         theme: {
@@ -57,12 +57,12 @@ const config: Config = {
           label: "Documentation",
         },
         {
-          href: "https://pkg.go.dev/github.com/gilmanlab/blobber",
+          href: "https://pkg.go.dev/github.com/meigma/blobber",
           label: "Go Reference",
           position: "right",
         },
         {
-          href: "https://github.com/gilmanlab/blobber",
+          href: "https://github.com/meigma/blobber",
           label: "GitHub",
           position: "right",
         },
@@ -76,16 +76,16 @@ const config: Config = {
           items: [
             {
               label: "GitHub",
-              href: "https://github.com/gilmanlab/blobber",
+              href: "https://github.com/meigma/blobber",
             },
             {
               label: "Go Reference",
-              href: "https://pkg.go.dev/github.com/gilmanlab/blobber",
+              href: "https://pkg.go.dev/github.com/meigma/blobber",
             },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Gilman Lab. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Meigma. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

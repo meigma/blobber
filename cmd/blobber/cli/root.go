@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/gilmanlab/blobber"
-	"github.com/gilmanlab/blobber/cmd/blobber/cli/config"
+	"github.com/meigma/blobber"
+	"github.com/meigma/blobber/cmd/blobber/cli/config"
 )
 
 // Build information set via ldflags.

@@ -11,7 +11,7 @@ import (
 	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry/remote/errcode"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 func TestMapError(t *testing.T) {

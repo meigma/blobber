@@ -17,7 +17,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 // Extract extracts an eStargz blob to the destination directory.

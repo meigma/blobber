@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/gilmanlab/blobber/cmd/blobber/cli"
+	"github.com/meigma/blobber/cmd/blobber/cli"
 )
 
 func main() {

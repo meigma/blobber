@@ -9,15 +9,15 @@ Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob
 ### CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
 ```
 
-See the [installation docs](https://blobber.gilman.io/getting-started/cli/installation) for other options (Homebrew, Scoop, Nix, Go).
+See the [installation docs](https://blobber.meigma.dev/getting-started/cli/installation) for other options (Homebrew, Scoop, Nix, Go).
 
 ### Library
 
 ```bash
-go get github.com/gilmanlab/blobber
+go get github.com/meigma/blobber
 ```
 
 ## Quick Start
@@ -48,7 +48,7 @@ import (
     "fmt"
     "os"
 
-    "github.com/gilmanlab/blobber"
+    "github.com/meigma/blobber"
 )
 
 func main() {
@@ -105,13 +105,13 @@ Configuration precedence: flags > environment variables > config file > defaults
 
 ## Documentation
 
-Full documentation is available at [blobber.gilman.io](https://blobber.gilman.io):
+Full documentation is available at [blobber.meigma.dev](https://blobber.meigma.dev):
 
-- [CLI Getting Started](https://blobber.gilman.io/getting-started/cli/installation)
-- [Library Getting Started](https://blobber.gilman.io/getting-started/library/installation)
-- [CLI Reference](https://blobber.gilman.io/reference/cli/push)
-- [Library Reference](https://blobber.gilman.io/reference/library/client)
-- [Configuration Guide](https://blobber.gilman.io/how-to/configure-blobber)
+- [CLI Getting Started](https://blobber.meigma.dev/getting-started/cli/installation)
+- [Library Getting Started](https://blobber.meigma.dev/getting-started/library/installation)
+- [CLI Reference](https://blobber.meigma.dev/reference/cli/push)
+- [Library Reference](https://blobber.meigma.dev/reference/library/client)
+- [Configuration Guide](https://blobber.meigma.dev/how-to/configure-blobber)
 
 ## Authentication
 

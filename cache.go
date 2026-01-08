@@ -1,6 +1,6 @@
 package blobber
 
-import "github.com/gilmanlab/blobber/core"
+import "github.com/meigma/blobber/core"
 
 // Type aliases re-exported from core package for cache operations.
 type (

@@ -1,6 +1,6 @@
 package blobber
 
-import "github.com/gilmanlab/blobber/core"
+import "github.com/meigma/blobber/core"
 
 // Compression provides compression/decompression for eStargz blobs.
 // This is a type alias for estargz.Compression, allowing custom implementations.

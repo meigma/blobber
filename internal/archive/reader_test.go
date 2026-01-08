@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 func TestReader_ReadTOC(t *testing.T) {

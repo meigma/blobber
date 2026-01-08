@@ -9,10 +9,10 @@ import (
 
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
-	"github.com/gilmanlab/blobber/internal/archive"
-	"github.com/gilmanlab/blobber/internal/cache"
-	"github.com/gilmanlab/blobber/internal/registry"
-	"github.com/gilmanlab/blobber/internal/safepath"
+	"github.com/meigma/blobber/internal/archive"
+	"github.com/meigma/blobber/internal/cache"
+	"github.com/meigma/blobber/internal/registry"
+	"github.com/meigma/blobber/internal/safepath"
 )
 
 // Client provides operations against OCI registries.

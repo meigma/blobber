@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 
-	"github.com/gilmanlab/blobber/cmd/blobber/cli/config"
+	"github.com/meigma/blobber/cmd/blobber/cli/config"
 )
 
 var configCmd = &cobra.Command{

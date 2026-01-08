@@ -31,14 +31,14 @@
             ldflags = [
               "-s"
               "-w"
-              "-X github.com/gilmanlab/blobber/cmd/blobber/cli.version=${version}"
-              "-X github.com/gilmanlab/blobber/cmd/blobber/cli.commit=${commit}"
-              "-X github.com/gilmanlab/blobber/cmd/blobber/cli.date=${date}"
+              "-X github.com/meigma/blobber/cmd/blobber/cli.version=${version}"
+              "-X github.com/meigma/blobber/cmd/blobber/cli.commit=${commit}"
+              "-X github.com/meigma/blobber/cmd/blobber/cli.date=${date}"
             ];
 
             meta = with pkgs.lib; {
               description = "Push and pull files to OCI container registries";
-              homepage = "https://github.com/gilmanlab/blobber";
+              homepage = "https://github.com/meigma/blobber";
               license = licenses.mit;
               maintainers = [ ];
               mainProgram = "blobber";

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 // jsonExt is the file extension for JSON metadata files.

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber"
-	"github.com/gilmanlab/blobber/internal/archive"
-	"github.com/gilmanlab/blobber/internal/safepath"
+	"github.com/meigma/blobber"
+	"github.com/meigma/blobber/internal/archive"
+	"github.com/meigma/blobber/internal/safepath"
 )
 
 // buildTestBlob creates an eStargz blob from the given filesystem for testing.

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 // RefEntry maps a reference to its resolved digest with validation metadata.

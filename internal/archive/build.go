@@ -14,7 +14,7 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/opencontainers/go-digest"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 // digestingWriter computes digest and size while writing.

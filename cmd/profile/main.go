@@ -23,7 +23,7 @@ import (
 	"github.com/felixge/fgprof"
 	"github.com/grafana/pyroscope-go"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/meigma/blobber"
 )
 
 type profileKind string

@@ -67,7 +67,7 @@ Verify checksum signature:
 cosign verify-blob \
   --certificate checksums.txt.pem \
   --signature checksums.txt.sig \
-  --certificate-identity-regexp="https://github.com/gilmanlab/blobber" \
+  --certificate-identity-regexp="https://github.com/meigma/blobber" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
   checksums.txt
 ```

@@ -25,9 +25,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/gilmanlab/blobber/cmd/blobber/cli.version={{.Version}}
-      - -X github.com/gilmanlab/blobber/cmd/blobber/cli.commit={{.ShortCommit}}
-      - -X github.com/gilmanlab/blobber/cmd/blobber/cli.date={{.Date}}
+      - -X github.com/meigma/blobber/cmd/blobber/cli.version={{.Version}}
+      - -X github.com/meigma/blobber/cmd/blobber/cli.commit={{.ShortCommit}}
+      - -X github.com/meigma/blobber/cmd/blobber/cli.date={{.Date}}
 
 archives:
   - id: default
@@ -87,11 +87,11 @@ changelog:
 
 brews:
   - repository:
-      owner: GilmanLab
+      owner: meigma
       name: tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
-    homepage: "https://github.com/gilmanlab/blobber"
+    homepage: "https://github.com/meigma/blobber"
     description: "Push and pull files to OCI registries"
     license: "MIT"
     skip_upload: auto
@@ -103,10 +103,10 @@ brews:
 
 scoops:
   - repository:
-      owner: GilmanLab
+      owner: meigma
       name: scoop-bucket
       token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
-    homepage: "https://github.com/gilmanlab/blobber"
+    homepage: "https://github.com/meigma/blobber"
     description: "Push and pull files to OCI registries"
     license: "MIT"
     skip_upload: auto
@@ -114,7 +114,7 @@ scoops:
 
 release:
   github:
-    owner: gilmanlab
+    owner: meigma
     name: blobber
   # Append to the release created by release-please
   mode: append
@@ -129,7 +129,7 @@ release:
     cosign verify-blob \
       --certificate checksums.txt.pem \
       --signature checksums.txt.sig \
-      --certificate-identity-regexp="https://github.com/gilmanlab/blobber" \
+      --certificate-identity-regexp="https://github.com/meigma/blobber" \
       --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
       checksums.txt
     ```
@@ -139,7 +139,7 @@ release:
     cosign verify-blob \
       --certificate blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.pem \
       --signature blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.sig \
-      --certificate-identity-regexp="https://github.com/gilmanlab/blobber" \
+      --certificate-identity-regexp="https://github.com/meigma/blobber" \
       --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
       blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json
     ```

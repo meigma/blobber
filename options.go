@@ -6,8 +6,8 @@ import (
 
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
-	"github.com/gilmanlab/blobber/core"
-	"github.com/gilmanlab/blobber/internal/registry"
+	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/registry"
 )
 
 // ClientOption configures a Client.

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gilmanlab/blobber/internal/cache"
+	"github.com/meigma/blobber/internal/cache"
 )
 
 // CacheInfo contains statistics about a cache directory.

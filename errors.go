@@ -1,6 +1,6 @@
 package blobber
 
-import "github.com/gilmanlab/blobber/core"
+import "github.com/meigma/blobber/core"
 
 // Sentinel errors for common failure conditions.
 // Re-exported from core package.

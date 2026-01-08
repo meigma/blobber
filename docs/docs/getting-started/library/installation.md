@@ -16,7 +16,7 @@ Add blobber to your Go project.
 Add blobber to your Go module:
 
 ```bash
-go get github.com/gilmanlab/blobber@latest
+go get github.com/meigma/blobber@latest
 ```
 
 ## Import
@@ -24,7 +24,7 @@ go get github.com/gilmanlab/blobber@latest
 Import in your code:
 
 ```go
-import "github.com/gilmanlab/blobber"
+import "github.com/meigma/blobber"
 ```
 
 ## Verify Installation
@@ -36,7 +36,7 @@ package main
 
 import (
     "fmt"
-    "github.com/gilmanlab/blobber"
+    "github.com/meigma/blobber"
 )
 
 func main() {

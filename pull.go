@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gilmanlab/blobber/internal/archive"
+	"github.com/meigma/blobber/internal/archive"
 )
 
 // Pull downloads all files from the image to the destination directory.

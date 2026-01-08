@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber/core"
-	"github.com/gilmanlab/blobber/internal/safepath"
+	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/safepath"
 )
 
 func TestExtract(t *testing.T) {

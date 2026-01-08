@@ -63,7 +63,7 @@ lint-fix:
 [group('lint')]
 fmt:
     gofmt -w .
-    goimports -w -local github.com/gilmanlab/blobber .
+    goimports -w -local github.com/meigma/blobber .
 
 # Check formatting without making changes
 [group('lint')]

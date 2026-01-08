@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/meigma/blobber"
 )
 
 // cacheTestDir creates a temporary cache directory for testing.

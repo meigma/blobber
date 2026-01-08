@@ -216,7 +216,7 @@ formatters:
     goimports:
       # Group local imports separately
       local-prefixes:
-        - github.com/gilmanlab/blobber
+        - github.com/meigma/blobber
 
 # Output configuration
 output:

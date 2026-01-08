@@ -15,7 +15,7 @@ Install the blobber CLI.
 Download and install the latest release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
 ```
 
 The script automatically:
@@ -36,13 +36,13 @@ Customize the installation with environment variables:
 **Install a specific version:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | BLOBBER_VERSION=1.0.0 sh
+curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_VERSION=1.0.0 sh
 ```
 
 **Install to a custom directory:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
+curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
 ```
 
 :::tip
@@ -59,7 +59,7 @@ export PATH="$HOME/.local/bin:$PATH"
 Install via [Homebrew](https://brew.sh/) (macOS and Linux):
 
 ```bash
-brew install gilmanlab/tap/blobber
+brew install meigma/tap/blobber
 ```
 
 Upgrade to the latest version:
@@ -74,7 +74,7 @@ brew upgrade blobber
 Install via [Scoop](https://scoop.sh/) (Windows):
 
 ```powershell
-scoop bucket add gilmanlab https://github.com/GilmanLab/scoop-bucket
+scoop bucket add meigma https://github.com/meigma/scoop-bucket
 scoop install blobber
 ```
 
@@ -92,13 +92,13 @@ Blobber provides a [Nix flake](https://nixos.wiki/wiki/Flakes) for installation 
 ### Run without installing
 
 ```bash
-nix run github:gilmanlab/blobber -- --help
+nix run github:meigma/blobber -- --help
 ```
 
 ### Install to profile
 
 ```bash
-nix profile install github:gilmanlab/blobber
+nix profile install github:meigma/blobber
 ```
 
 ### Add to your flake
@@ -106,7 +106,7 @@ nix profile install github:gilmanlab/blobber
 ```nix title="flake.nix"
 {
   inputs = {
-    blobber.url = "github:gilmanlab/blobber";
+    blobber.url = "github:meigma/blobber";
   };
 
   outputs = { self, blobber, ... }: {
@@ -120,7 +120,7 @@ nix profile install github:gilmanlab/blobber
 Clone the repository and enter the development environment:
 
 ```bash
-git clone https://github.com/gilmanlab/blobber.git
+git clone https://github.com/meigma/blobber.git
 cd blobber
 nix develop
 ```
@@ -131,7 +131,7 @@ nix develop
 If you have Go 1.21+ installed:
 
 ```bash
-go install github.com/gilmanlab/blobber/cmd/blobber@latest
+go install github.com/meigma/blobber/cmd/blobber@latest
 ```
 
 :::note
@@ -144,7 +144,7 @@ This installs to `$GOPATH/bin` (usually `~/go/bin`). Ensure it's in your `PATH`.
 Clone and build from source:
 
 ```bash
-git clone https://github.com/gilmanlab/blobber.git
+git clone https://github.com/meigma/blobber.git
 cd blobber
 go build -o blobber ./cmd/blobber
 ```

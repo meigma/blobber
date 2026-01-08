@@ -20,7 +20,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/meigma/blobber"
 )
 
 // testTimeout is the default timeout for integration test operations.

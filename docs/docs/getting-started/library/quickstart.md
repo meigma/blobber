@@ -25,7 +25,7 @@ import (
     "log"
     "os"
 
-    "github.com/gilmanlab/blobber"
+    "github.com/meigma/blobber"
 )
 
 func main() {

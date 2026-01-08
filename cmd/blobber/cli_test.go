@@ -12,7 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/gilmanlab/blobber/cmd/blobber/cli"
+	"github.com/meigma/blobber/cmd/blobber/cli"
 )
 
 // registryHost holds the registry URL for all tests (set once in TestMain).

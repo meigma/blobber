@@ -3,7 +3,7 @@ package cache
 import (
 	"os"
 
-	"github.com/gilmanlab/blobber/core"
+	"github.com/meigma/blobber/core"
 )
 
 // Compile-time interface check.

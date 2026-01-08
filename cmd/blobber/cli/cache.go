@@ -11,8 +11,8 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 
-	"github.com/gilmanlab/blobber"
-	"github.com/gilmanlab/blobber/cmd/blobber/cli/config"
+	"github.com/meigma/blobber"
+	"github.com/meigma/blobber/cmd/blobber/cli/config"
 )
 
 // Cache command flags

@@ -37,7 +37,7 @@ Set up a Go module:
 mkdir blobber-example
 cd blobber-example
 go mod init blobber-example
-go get github.com/gilmanlab/blobber@latest
+go get github.com/meigma/blobber@latest
 ```
 
 Create `main.go`:
@@ -53,7 +53,7 @@ import (
 	"os"
 	"testing/fstest"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/meigma/blobber"
 )
 
 func main() {
@@ -321,7 +321,7 @@ import (
 	"log"
 	"testing/fstest"
 
-	"github.com/gilmanlab/blobber"
+	"github.com/meigma/blobber"
 )
 
 func main() {

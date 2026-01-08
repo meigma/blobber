@@ -1,6 +1,6 @@
 #!/bin/sh
 # Blobber Installer Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
 #
 # Environment variables:
 #   BLOBBER_VERSION    - Version to install (default: latest)
@@ -11,24 +11,24 @@
 #
 # Examples:
 #   # Install latest version
-#   curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
 #
 #   # Install specific version
-#   curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | BLOBBER_VERSION=1.0.0 sh
+#   curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_VERSION=1.0.0 sh
 #
 #   # Install to custom directory
-#   curl -fsSL https://raw.githubusercontent.com/gilmanlab/blobber/master/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
+#   curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
 
 set -e
 
 # Configuration
-GITHUB_OWNER="gilmanlab"
+GITHUB_OWNER="meigma"
 GITHUB_REPO="blobber"
 BINARY_NAME="blobber"
 
 # Cosign verification parameters (keyless signing via GitHub Actions)
 # Identity is scoped to the release workflow and tag refs only
-COSIGN_CERT_IDENTITY_REGEXP="https://github.com/gilmanlab/blobber/.github/workflows/release.yml@refs/tags/.*"
+COSIGN_CERT_IDENTITY_REGEXP="https://github.com/meigma/blobber/.github/workflows/release.yml@refs/tags/.*"
 COSIGN_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 
 # Colors (disabled if not a terminal)
