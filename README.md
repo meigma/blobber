@@ -1,11 +1,12 @@
 # Blobber
 
 [![CI](https://github.com/meigma/blobber/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/meigma/blobber/actions/workflows/ci.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/meigma/blobber.svg)](https://pkg.go.dev/github.com/meigma/blobber)
+[![Docs](https://img.shields.io/badge/docs-blobber.meigma.dev-blue)](https://blobber.meigma.dev/docs)
+[![Godocs](https://pkg.go.dev/badge/github.com/meigma/blobber.svg)](https://pkg.go.dev/github.com/meigma/blobber)
 [![Release](https://img.shields.io/github/v/release/meigma/blobber)](https://github.com/meigma/blobber/releases)
 [![License](https://img.shields.io/github/license/meigma/blobber)](LICENSE)
 
-A Go library and CLI for pushing and pulling files to OCI container registries.
+> A Go library and CLI for pushing and pulling files to OCI container registries.
 
 Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob/main/docs/estargz.md) format to enable listing and selective retrieval of files without downloading entire images.
 Listing and streaming require eStargz images; Blobber pushes eStargz by default.
@@ -13,7 +14,7 @@ Listing and streaming require eStargz images; Blobber pushes eStargz by default.
 ## Quick Start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
+curl -fsSL https://blobber.meigma.dev/install.sh | sh
 
 # Push a directory to a registry
 blobber push ./config ghcr.io/myorg/config:v1
@@ -27,10 +28,10 @@ blobber list ghcr.io/myorg/config:v1
 ### CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
+curl -fsSL https://blobber.meigma.dev/install.sh | sh
 ```
 
-See the [installation docs](https://blobber.meigma.dev/getting-started/cli/installation) for other options (Homebrew, Scoop, Nix, Go).
+See the [installation docs](https://blobber.meigma.dev/docs/getting-started/cli/installation) for other options (Homebrew, Scoop, Nix, Go).
 
 ### Library
 
@@ -141,11 +142,11 @@ Configuration precedence: flags > environment variables > config file > defaults
 
 Full documentation is available at [blobber.meigma.dev](https://blobber.meigma.dev):
 
-- [CLI Getting Started](https://blobber.meigma.dev/getting-started/cli/installation)
-- [Library Getting Started](https://blobber.meigma.dev/getting-started/library/installation)
-- [CLI Reference](https://blobber.meigma.dev/reference/cli/push)
-- [Library Reference](https://blobber.meigma.dev/reference/library/client)
-- [Configuration Guide](https://blobber.meigma.dev/how-to/configure-blobber)
+- [CLI Getting Started](https://blobber.meigma.dev/docs/getting-started/cli/installation)
+- [Library Getting Started](https://blobber.meigma.dev/docs/getting-started/library/installation)
+- [CLI Reference](https://blobber.meigma.dev/docs/reference/cli/push)
+- [Library Reference](https://blobber.meigma.dev/docs/reference/library/client)
+- [Configuration Guide](https://blobber.meigma.dev/docs/how-to/configure-blobber)
 
 ## Authentication
 
