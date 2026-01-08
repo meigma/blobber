@@ -525,6 +525,9 @@ func TestIntegration_Cache_Prune_MaxAge(t *testing.T) {
 	// Verify both entries exist
 	assertCacheHasEntries(t, cacheDir, 2)
 
+	// Wait to ensure entries are older than the MaxAge threshold
+	time.Sleep(10 * time.Millisecond)
+
 	// Prune with very short max age (should remove both since they're older than 1ms)
 	result, err := blobber.CachePrune(ctx, cacheDir, blobber.CachePruneOptions{
 		MaxAge: 1 * time.Millisecond,
