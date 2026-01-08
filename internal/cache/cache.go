@@ -18,6 +18,9 @@ import (
 	"github.com/gilmanlab/blobber/core"
 )
 
+// jsonExt is the file extension for JSON metadata files.
+const jsonExt = ".json"
+
 // Cache implements core.BlobSource with disk-based caching.
 // It stores complete blobs keyed by their SHA256 digest.
 type Cache struct {
@@ -39,6 +42,7 @@ func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, erro
 	dirs := []string{
 		filepath.Join(path, "blobs", "sha256"),
 		filepath.Join(path, "entries", "sha256"),
+		filepath.Join(path, "refs"),
 	}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
@@ -61,7 +65,7 @@ func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, erro
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and the blob is re-downloaded (self-healing).
 func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
-	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	entry, blobPath, entryPath := c.LoadCompleteEntry(desc.Digest)
 	if entry != nil {
 		c.logger.Debug("cache hit", "digest", desc.Digest)
 		handle, openErr := c.openCachedBlob(blobPath, entry)
@@ -98,7 +102,7 @@ func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor)
 // Note: For cache misses, this blocks until the full download completes.
 // Use OpenStreamThrough for true streaming with concurrent cache population.
 func (c *Cache) OpenStream(ctx context.Context, ref string, desc core.LayerDescriptor) (io.ReadCloser, error) {
-	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	entry, blobPath, entryPath := c.LoadCompleteEntry(desc.Digest)
 	if entry != nil {
 		c.logger.Debug("cache hit (stream)", "digest", desc.Digest)
 		f, openErr := c.openCachedBlobFile(blobPath, entry)
@@ -133,7 +137,7 @@ func (c *Cache) OpenStream(ctx context.Context, ref string, desc core.LayerDescr
 //
 // This preserves streaming extraction performance when caching is enabled.
 func (c *Cache) OpenStreamThrough(ctx context.Context, ref string, desc core.LayerDescriptor) (io.ReadCloser, error) {
-	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	entry, blobPath, entryPath := c.LoadCompleteEntry(desc.Digest)
 	if entry != nil {
 		c.logger.Debug("cache hit (stream-through)", "digest", desc.Digest)
 		f, openErr := c.openCachedBlobFile(blobPath, entry)
@@ -349,7 +353,7 @@ func (c *Cache) touchEntry(entryPath string, entry *Entry) {
 	}
 }
 
-// Clear removes all cached blobs.
+// Clear removes all cached blobs and reference index entries.
 func (c *Cache) Clear() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -358,6 +362,7 @@ func (c *Cache) Clear() error {
 	dirs := []string{
 		filepath.Join(c.path, "blobs", "sha256"),
 		filepath.Join(c.path, "entries", "sha256"),
+		filepath.Join(c.path, "refs"),
 	}
 
 	for _, dir := range dirs {
@@ -381,7 +386,7 @@ func (c *Cache) blobPath(digest string) string {
 // entryPath returns the path for a cache entry metadata file.
 func (c *Cache) entryPath(digest string) string {
 	hashStr := extractHash(digest)
-	return filepath.Join(c.path, "entries", "sha256", hashStr+".json")
+	return filepath.Join(c.path, "entries", "sha256", hashStr+jsonExt)
 }
 
 // getPaths returns the blob and entry paths for a digest.
@@ -391,9 +396,10 @@ func (c *Cache) getPaths(digest string) (blobPath, entryPath string) {
 	return c.blobPath(digest), c.entryPath(digest)
 }
 
-// loadCompleteEntry loads an entry if it's complete and verified.
+// LoadCompleteEntry loads an entry if it's complete and verified.
 // Returns (entry, blobPath, entryPath) where entry is nil for cache misses.
-func (c *Cache) loadCompleteEntry(digest string) (entry *Entry, blobPath, entryPath string) {
+// This is exported for TTL validation to check if a cached descriptor's blob exists.
+func (c *Cache) LoadCompleteEntry(digest string) (entry *Entry, blobPath, entryPath string) {
 	blobPath, entryPath = c.getPaths(digest)
 	var err error
 	entry, err = loadEntry(entryPath)
@@ -719,7 +725,7 @@ func (c *Cache) savePartialProgress(entryPath string, entry *Entry, ranges []Ran
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and lazy loading starts fresh (self-healing).
 func (c *Cache) OpenLazy(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
-	entry, blobPath, entryPath := c.loadCompleteEntry(desc.Digest)
+	entry, blobPath, entryPath := c.LoadCompleteEntry(desc.Digest)
 	if entry != nil {
 		c.logger.Debug("lazy cache hit (complete)", "digest", desc.Digest)
 		handle, openErr := c.openCachedBlob(blobPath, entry)

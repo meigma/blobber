@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"time"
 
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
@@ -32,6 +34,7 @@ type Client struct {
 	cache              *cache.Cache
 	backgroundPrefetch bool
 	lazyLoading        bool
+	cacheTTL           time.Duration
 }
 
 // NewClient creates a new blobber client.
@@ -122,10 +125,27 @@ func (c *Client) OpenImage(ctx context.Context, ref string) (*Image, error) {
 
 // openImageCached opens an image using the cache.
 func (c *Client) openImageCached(ctx context.Context, ref string) (*Image, error) {
-	// Resolve the layer descriptor first
-	desc, err := c.registry.ResolveLayer(ctx, ref)
-	if err != nil {
-		return nil, fmt.Errorf("resolve %s: %w", ref, err)
+	var desc LayerDescriptor
+	var err error
+
+	// Try TTL-based resolution first
+	if c.cacheTTL > 0 {
+		if cachedDesc, ok := c.cache.LookupByRef(ref, c.cacheTTL); ok {
+			if c.hasCachedBlob(cachedDesc) {
+				c.logger.Debug("using TTL-cached descriptor", "ref", ref, "digest", cachedDesc.Digest)
+				desc = cachedDesc
+			}
+		}
+	}
+
+	// If no valid TTL cache hit, resolve from registry
+	if desc.Digest == "" {
+		desc, err = c.registry.ResolveLayer(ctx, ref)
+		if err != nil {
+			return nil, fmt.Errorf("resolve %s: %w", ref, err)
+		}
+		// Update the reference index
+		c.cache.UpdateRefIndex(ref, desc)
 	}
 
 	// Get blob handle from cache
@@ -154,4 +174,26 @@ func (c *Client) openImageCached(ctx context.Context, ref string) (*Image, error
 	}
 
 	return img, nil
+}
+
+// hasCachedBlob checks if a blob with the given descriptor is fully cached.
+// This verifies both the entry metadata AND that the blob file exists with correct size.
+func (c *Client) hasCachedBlob(desc LayerDescriptor) bool {
+	entry, blobPath, _ := c.cache.LoadCompleteEntry(desc.Digest)
+	if entry == nil {
+		return false
+	}
+
+	// Verify blob file exists and has expected size
+	info, err := os.Stat(blobPath)
+	if err != nil {
+		c.logger.Debug("TTL cache hit but blob file missing", "digest", desc.Digest, "error", err)
+		return false
+	}
+	if info.Size() != entry.Size {
+		c.logger.Debug("TTL cache hit but blob size mismatch", "digest", desc.Digest, "expected", entry.Size, "actual", info.Size())
+		return false
+	}
+
+	return true
 }

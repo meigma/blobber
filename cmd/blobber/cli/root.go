@@ -47,6 +47,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("insecure", false, "Allow insecure registry connections")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose debug logging")
 	rootCmd.PersistentFlags().Bool("no-cache", false, "Bypass cache for this request")
+	rootCmd.PersistentFlags().Duration("cache-ttl", 0, "TTL for cache validation (e.g., 5m, 1h)")
 
 	// Bind flags to Viper (errors only occur if flag doesn't exist, which can't happen here)
 	//nolint:errcheck // flags are defined above, so Lookup will never return nil
@@ -55,6 +56,8 @@ func init() {
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	//nolint:errcheck
 	viper.BindPFlag("no-cache", rootCmd.PersistentFlags().Lookup("no-cache"))
+	//nolint:errcheck
+	viper.BindPFlag("cache.ttl", rootCmd.PersistentFlags().Lookup("cache-ttl"))
 
 	// Set defaults
 	viper.SetDefault("cache.enabled", true)
@@ -114,6 +117,12 @@ func newClient() (*blobber.Client, error) {
 	// 2. --no-cache flag was passed
 	noCache := viper.GetBool("no-cache")
 	cacheEnabled := viper.GetBool("cache.enabled")
+	cacheTTL := viper.GetDuration("cache.ttl")
+
+	// Mutual exclusion check
+	if noCache && cacheTTL > 0 {
+		return nil, errors.New("--no-cache and --cache-ttl are mutually exclusive")
+	}
 
 	if cacheEnabled && !noCache {
 		cacheDir := viper.GetString("cache.dir")
@@ -125,6 +134,11 @@ func newClient() (*blobber.Client, error) {
 			}
 		}
 		opts = append(opts, blobber.WithCacheDir(cacheDir))
+
+		// Apply TTL if configured
+		if cacheTTL > 0 {
+			opts = append(opts, blobber.WithCacheTTL(cacheTTL))
+		}
 	}
 
 	return blobber.NewClient(opts...)

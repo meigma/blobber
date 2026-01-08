@@ -52,10 +52,13 @@ func (c *Cache) Prune(ctx context.Context, opts PruneOptions) (PruneResult, erro
 
 	toRemove := c.selectEntriesToRemove(entries, opts)
 
-	result, err = c.executeRemovals(ctx, entries, toRemove)
+	result, validDigests, err := c.executeRemovals(ctx, entries, toRemove)
 	if err != nil {
 		return result, err
 	}
+
+	// Clean up orphaned refs after pruning
+	c.cleanupOrphanedRefs(validDigests)
 
 	c.logger.Debug("cache pruned",
 		"removed", result.EntriesRemoved,
@@ -119,12 +122,13 @@ func (c *Cache) markLRUEntries(entries []*Entry, toRemove map[string]bool, maxSi
 	}
 }
 
-// executeRemovals removes marked entries and returns statistics.
-func (c *Cache) executeRemovals(ctx context.Context, entries []*Entry, toRemove map[string]bool) (PruneResult, error) {
+// executeRemovals removes marked entries and returns statistics and the set of remaining digests.
+func (c *Cache) executeRemovals(ctx context.Context, entries []*Entry, toRemove map[string]bool) (PruneResult, map[string]bool, error) {
 	var result PruneResult
+	validDigests := make(map[string]bool)
 	for _, e := range entries {
 		if ctx.Err() != nil {
-			return result, ctx.Err()
+			return result, validDigests, ctx.Err()
 		}
 		if toRemove[e.Digest] {
 			if err := c.evictLocked(e.Digest); err != nil {
@@ -136,9 +140,10 @@ func (c *Cache) executeRemovals(ctx context.Context, entries []*Entry, toRemove 
 		} else {
 			result.EntriesRemaining++
 			result.BytesRemaining += e.Size
+			validDigests[e.Digest] = true
 		}
 	}
-	return result, nil
+	return result, validDigests, nil
 }
 
 // Size returns the total size of all cached blobs in bytes.
@@ -195,7 +200,7 @@ func (c *Cache) loadAllEntries() ([]*Entry, error) {
 			continue
 		}
 		name := f.Name()
-		if len(name) < 5 || name[len(name)-5:] != ".json" {
+		if filepath.Ext(name) != jsonExt {
 			continue
 		}
 
@@ -225,5 +230,68 @@ func (c *Cache) evictLocked(digest string) error {
 		}
 	}
 
+	// Clean up any refs pointing to this digest
+	c.removeRefsByDigest(digest)
+
 	return nil
+}
+
+// removeRefsByDigest removes all reference entries that point to the given digest.
+// This is called when a blob is evicted to prevent stale ref→digest mappings.
+func (c *Cache) removeRefsByDigest(digest string) {
+	refsDir := filepath.Join(c.path, "refs")
+	files, err := os.ReadDir(refsDir)
+	if err != nil {
+		return // refs dir may not exist
+	}
+
+	for _, f := range files {
+		if f.IsDir() || filepath.Ext(f.Name()) != jsonExt {
+			continue
+		}
+
+		refPath := filepath.Join(refsDir, f.Name())
+		entry, err := loadRefEntry(refPath)
+		if err != nil {
+			continue
+		}
+
+		if entry.Digest == digest {
+			if err := os.Remove(refPath); err != nil && !os.IsNotExist(err) {
+				c.logger.Debug("failed to remove ref entry", "path", refPath, "error", err)
+			}
+		}
+	}
+}
+
+// cleanupOrphanedRefs removes ref entries that point to digests not in the valid set.
+// This is called after pruning to ensure ref index stays consistent with blob cache.
+func (c *Cache) cleanupOrphanedRefs(validDigests map[string]bool) {
+	refsDir := filepath.Join(c.path, "refs")
+	files, err := os.ReadDir(refsDir)
+	if err != nil {
+		return // refs dir may not exist
+	}
+
+	for _, f := range files {
+		if f.IsDir() || filepath.Ext(f.Name()) != jsonExt {
+			continue
+		}
+
+		refPath := filepath.Join(refsDir, f.Name())
+		entry, err := loadRefEntry(refPath)
+		if err != nil {
+			// Remove corrupt/unreadable entries
+			os.Remove(refPath)
+			continue
+		}
+
+		if !validDigests[entry.Digest] {
+			if err := os.Remove(refPath); err != nil && !os.IsNotExist(err) {
+				c.logger.Debug("failed to remove orphaned ref", "ref", entry.Ref, "error", err)
+			} else {
+				c.logger.Debug("removed orphaned ref", "ref", entry.Ref, "digest", entry.Digest)
+			}
+		}
+	}
 }

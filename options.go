@@ -2,6 +2,7 @@ package blobber
 
 import (
 	"log/slog"
+	"time"
 
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
@@ -165,6 +166,23 @@ func WithBackgroundPrefetch(enabled bool) ClientOption {
 func WithLazyLoading(enabled bool) ClientOption {
 	return func(c *Client) error {
 		c.lazyLoading = enabled
+		return nil
+	}
+}
+
+// WithCacheTTL sets the TTL for cache validation.
+// When set, cached entries will be used without re-validating with the
+// registry if they were validated within the TTL duration.
+//
+// A zero or negative TTL means always validate (current behavior).
+// This option only has effect when caching is enabled (via WithCacheDir).
+//
+// WARNING: Using a TTL means you may get stale data if a tag is updated
+// on the registry. For immutable references (digests), TTL is always safe.
+// For mutable tags, choose a TTL that balances freshness vs. performance.
+func WithCacheTTL(ttl time.Duration) ClientOption {
+	return func(c *Client) error {
+		c.cacheTTL = ttl
 		return nil
 	}
 }

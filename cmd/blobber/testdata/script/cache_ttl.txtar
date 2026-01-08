@@ -1,0 +1,48 @@
+# Test --cache-ttl flag for cache validation TTL
+
+# Test --no-cache and --cache-ttl are mutually exclusive
+! exec blobber --no-cache --cache-ttl=5m pull --insecure localhost:5000/test:v1 $WORK/output
+stderr 'mutually exclusive'
+
+# Push test data to registry
+exec blobber push --insecure testdata $REGISTRY/cli-test/ttl:v1
+stdout 'sha256:'
+! stderr .
+
+# Pull with --cache-ttl - should work and populate cache
+exec blobber pull --insecure --cache-ttl=5m $REGISTRY/cli-test/ttl:v1 $WORK/output1
+! stderr .
+
+# Verify files were pulled
+exists $WORK/output1/config.yaml
+exists $WORK/output1/data.txt
+
+# Verify cache has an entry
+exec blobber cache info
+stdout 'Entries: 1'
+! stderr .
+
+# Second pull with --cache-ttl should use cached descriptor (skips manifest validation)
+# We can't easily verify the skip in testscript, but we can verify it still works
+exec blobber pull --insecure --cache-ttl=5m $REGISTRY/cli-test/ttl:v1 $WORK/output2
+! stderr .
+
+# Verify files were pulled
+exists $WORK/output2/config.yaml
+exists $WORK/output2/data.txt
+
+# Test that --cache-ttl accepts various duration formats
+exec blobber pull --insecure --cache-ttl=1h $REGISTRY/cli-test/ttl:v1 $WORK/output3
+! stderr .
+
+exec blobber pull --insecure --cache-ttl=30s $REGISTRY/cli-test/ttl:v1 $WORK/output4
+! stderr .
+
+# Test invalid duration format
+! exec blobber pull --insecure --cache-ttl=invalid $REGISTRY/cli-test/ttl:v1 $WORK/output5
+stderr 'invalid'
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+test data file

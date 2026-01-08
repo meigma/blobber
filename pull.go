@@ -41,10 +41,27 @@ func (c *Client) Pull(ctx context.Context, ref, destDir string, opts ...PullOpti
 
 // pullCached pulls an image using the cache.
 func (c *Client) pullCached(ctx context.Context, ref, destDir string, cfg *pullConfig) error {
-	// Resolve the layer descriptor first
-	desc, err := c.registry.ResolveLayer(ctx, ref)
-	if err != nil {
-		return fmt.Errorf("resolve %s: %w", ref, err)
+	var desc LayerDescriptor
+	var err error
+
+	// Try TTL-based resolution first
+	if c.cacheTTL > 0 {
+		if cachedDesc, ok := c.cache.LookupByRef(ref, c.cacheTTL); ok {
+			if c.hasCachedBlob(cachedDesc) {
+				c.logger.Debug("using TTL-cached descriptor for pull", "ref", ref, "digest", cachedDesc.Digest)
+				desc = cachedDesc
+			}
+		}
+	}
+
+	// If no valid TTL cache hit, resolve from registry
+	if desc.Digest == "" {
+		desc, err = c.registry.ResolveLayer(ctx, ref)
+		if err != nil {
+			return fmt.Errorf("resolve %s: %w", ref, err)
+		}
+		// Update the reference index
+		c.cache.UpdateRefIndex(ref, desc)
 	}
 
 	// Get blob stream from cache with streaming pass-through.
