@@ -1,8 +1,26 @@
-# blobber
+# Blobber
+
+[![CI](https://github.com/meigma/blobber/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/meigma/blobber/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/meigma/blobber.svg)](https://pkg.go.dev/github.com/meigma/blobber)
+[![Release](https://img.shields.io/github/v/release/meigma/blobber)](https://github.com/meigma/blobber/releases)
+[![License](https://img.shields.io/github/license/meigma/blobber)](LICENSE)
 
 A Go library and CLI for pushing and pulling files to OCI container registries.
 
 Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob/main/docs/estargz.md) format to enable listing and selective retrieval of files without downloading entire images.
+Listing and streaming require eStargz images; Blobber pushes eStargz by default.
+
+## Quick Start
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
+
+# Push a directory to a registry
+blobber push ./config ghcr.io/myorg/config:v1
+
+# List files without downloading
+blobber list ghcr.io/myorg/config:v1
+```
 
 ## Installation
 
@@ -20,7 +38,7 @@ See the [installation docs](https://blobber.meigma.dev/getting-started/cli/insta
 go get github.com/meigma/blobber
 ```
 
-## Quick Start
+## Examples
 
 ### CLI
 
@@ -46,6 +64,7 @@ package main
 import (
     "context"
     "fmt"
+    "log"
     "os"
 
     "github.com/meigma/blobber"
@@ -53,23 +72,38 @@ import (
 
 func main() {
     ctx := context.Background()
-    client, _ := blobber.NewClient()
+    client, err := blobber.NewClient()
+    if err != nil {
+        log.Fatal(err)
+    }
 
     // Push a directory
-    digest, _ := client.Push(ctx, "ghcr.io/myorg/config:v1", os.DirFS("./config"))
+    digest, err := client.Push(ctx, "ghcr.io/myorg/config:v1", os.DirFS("./config"))
+    if err != nil {
+        log.Fatal(err)
+    }
     fmt.Println(digest)
 
     // Open an image and list files
-    img, _ := client.OpenImage(ctx, "ghcr.io/myorg/config:v1")
+    img, err := client.OpenImage(ctx, "ghcr.io/myorg/config:v1")
+    if err != nil {
+        log.Fatal(err)
+    }
     defer img.Close()
 
-    entries, _ := img.List()
+    entries, err := img.List()
+    if err != nil {
+        log.Fatal(err)
+    }
     for _, e := range entries {
         fmt.Printf("%s (%d bytes)\n", e.Path(), e.Size())
     }
 
     // Read a single file
-    rc, _ := img.Open("app.yaml")
+    rc, err := img.Open("app.yaml")
+    if err != nil {
+        log.Fatal(err)
+    }
     defer rc.Close()
     // ... read from rc
 }

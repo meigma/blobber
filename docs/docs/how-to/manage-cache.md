@@ -149,5 +149,5 @@ blobber config set cache.enabled false
 
 ## See Also
 
-- [CLI Reference: cache](/reference/cli/cache)
-- [How to Configure Blobber](/how-to/configure-blobber)
+- [CLI Reference: cache](/docs/reference/cli/cache)
+- [How to Configure Blobber](/docs/how-to/configure-blobber)

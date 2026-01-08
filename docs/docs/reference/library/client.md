@@ -174,6 +174,6 @@ entries, err := img.List()
 
 ## See Also
 
-- [Image](/reference/library/image) - Reading files from opened images
-- [Options](/reference/library/options) - Client and operation options
-- [Errors](/reference/library/errors) - Error handling
+- [Image](/docs/reference/library/image) - Reading files from opened images
+- [Options](/docs/reference/library/options) - Client and operation options
+- [Errors](/docs/reference/library/errors) - Error handling

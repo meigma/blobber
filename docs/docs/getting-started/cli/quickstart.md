@@ -8,7 +8,7 @@ Push and pull files to an OCI registry in under 5 minutes.
 
 ## Prerequisites
 
-- [blobber installed](/getting-started/cli/installation)
+- [blobber installed](/docs/getting-started/cli/installation)
 - Access to an OCI registry (GitHub Container Registry, Docker Hub, etc.)
 - Docker credentials configured (`docker login`)
 
@@ -91,6 +91,6 @@ database.yaml  logging.yaml  server.yaml
 
 ## What's Next?
 
-- [CLI Tutorial](/tutorials/cli-basics) - Learn all CLI features step-by-step
-- [How to Authenticate](/how-to/authenticate) - Configure registry credentials
-- [CLI Reference](/reference/cli/push) - Complete command documentation
+- [CLI Tutorial](/docs/tutorials/cli-basics) - Learn all CLI features step-by-step
+- [How to Authenticate](/docs/how-to/authenticate) - Configure registry credentials
+- [CLI Reference](/docs/reference/cli/push) - Complete command documentation

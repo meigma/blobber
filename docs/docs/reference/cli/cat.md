@@ -75,6 +75,6 @@ blobber cat ghcr.io/myorg/config:v1 config.json | jq .
 
 ## See Also
 
-- [blobber list](/reference/cli/list) - List available files
-- [blobber pull](/reference/cli/pull) - Download all files
-- [How to Extract Single Files](/how-to/extract-single-file) - Practical examples
+- [blobber list](/docs/reference/cli/list) - List available files
+- [blobber pull](/docs/reference/cli/pull) - Download all files
+- [How to Extract Single Files](/docs/how-to/extract-single-file) - Practical examples

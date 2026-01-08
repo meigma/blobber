@@ -98,6 +98,6 @@ For a 1GB image, extracting a 1KB config file downloads approximately 1KB.
 
 ## See Also
 
-- [CLI Reference: cat](/reference/cli/cat)
-- [How to List Remote Files](/how-to/list-remote-files)
-- [About eStargz](/explanation/about-estargz)
+- [CLI Reference: cat](/docs/reference/cli/cat)
+- [How to List Remote Files](/docs/how-to/list-remote-files)
+- [About eStargz](/docs/explanation/about-estargz)

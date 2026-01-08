@@ -15,7 +15,7 @@ Install the blobber CLI.
 Download and install the latest release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
+curl -fsSL https://blobber.meigma.dev/install.sh | sh
 ```
 
 The script automatically:
@@ -36,13 +36,13 @@ Customize the installation with environment variables:
 **Install a specific version:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_VERSION=1.0.0 sh
+curl -fsSL https://blobber.meigma.dev/install.sh | BLOBBER_VERSION=1.0.0 sh
 ```
 
 **Install to a custom directory:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
+curl -fsSL https://blobber.meigma.dev/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
 ```
 
 :::tip
@@ -174,5 +174,5 @@ Blobber uses your existing Docker credentials from `~/.docker/config.json`. If y
 
 ## Next Steps
 
-- [Quickstart](/getting-started/cli/quickstart) - Push and pull your first files
-- [CLI Tutorial](/tutorials/cli-basics) - Learn all CLI features step-by-step
+- [Quickstart](/docs/getting-started/cli/quickstart) - Push and pull your first files
+- [CLI Tutorial](/docs/tutorials/cli-basics) - Learn all CLI features step-by-step

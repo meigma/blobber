@@ -91,5 +91,5 @@ Blobber enforces safety limits to prevent resource exhaustion:
 
 ## See Also
 
-- [blobber push](/reference/cli/push) - Upload to registry
-- [blobber cat](/reference/cli/cat) - Stream single files
+- [blobber push](/docs/reference/cli/push) - Upload to registry
+- [blobber cat](/docs/reference/cli/cat) - Stream single files

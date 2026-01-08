@@ -43,7 +43,7 @@ blobber pull ghcr.io/myorg/config:v1 ./output
         <p>Use blobber from the command line to push and pull files.</p>
       </div>
       <div className="card__footer">
-        <a className="button button--primary button--block" href="/getting-started/cli/installation">Get Started</a>
+        <a className="button button--primary button--block" href="/docs/getting-started/cli/installation">Get Started</a>
       </div>
     </div>
   </div>
@@ -56,7 +56,7 @@ blobber pull ghcr.io/myorg/config:v1 ./output
         <p>Import blobber as a library in your Go applications.</p>
       </div>
       <div className="card__footer">
-        <a className="button button--secondary button--block" href="/getting-started/library/installation">Get Started</a>
+        <a className="button button--secondary button--block" href="/docs/getting-started/library/installation">Get Started</a>
       </div>
     </div>
   </div>
@@ -71,4 +71,4 @@ Container registries offer compelling properties for file storage:
 - **Immutability** - Pin to digest for reproducible deployments
 - **Versioning** - Tag-based version management
 
-Learn more in [Why OCI Registries](/explanation/why-oci-registries).
+Learn more in [Why OCI Registries](/docs/explanation/why-oci-registries).

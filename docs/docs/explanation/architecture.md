@@ -223,6 +223,6 @@ if errors.Is(err, blobber.ErrNotFound) {
 
 ## See Also
 
-- [About eStargz](/explanation/about-estargz) - The format that enables selective retrieval
-- [Why OCI Registries](/explanation/why-oci-registries) - Registry benefits
-- [Library Reference](/reference/library/client) - API documentation
+- [About eStargz](/docs/explanation/about-estargz) - The format that enables selective retrieval
+- [Why OCI Registries](/docs/explanation/why-oci-registries) - Registry benefits
+- [Library Reference](/docs/reference/library/client) - API documentation

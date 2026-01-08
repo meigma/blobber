@@ -1,6 +1,6 @@
 #!/bin/sh
 # Blobber Installer Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
+# Usage: curl -fsSL https://blobber.meigma.dev/install.sh | sh
 #
 # Environment variables:
 #   BLOBBER_VERSION    - Version to install (default: latest)
@@ -11,13 +11,13 @@
 #
 # Examples:
 #   # Install latest version
-#   curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | sh
+#   curl -fsSL https://blobber.meigma.dev/install.sh | sh
 #
 #   # Install specific version
-#   curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_VERSION=1.0.0 sh
+#   curl -fsSL https://blobber.meigma.dev/install.sh | BLOBBER_VERSION=1.0.0 sh
 #
 #   # Install to custom directory
-#   curl -fsSL https://raw.githubusercontent.com/meigma/blobber/master/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
+#   curl -fsSL https://blobber.meigma.dev/install.sh | BLOBBER_INSTALL=/usr/local/bin sh
 
 set -e
 

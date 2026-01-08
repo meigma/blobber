@@ -8,7 +8,7 @@ Basic blobber library usage in under 5 minutes.
 
 ## Prerequisites
 
-- [blobber installed](/getting-started/library/installation)
+- [blobber installed](/docs/getting-started/library/installation)
 - Access to an OCI registry
 - Docker credentials configured
 
@@ -120,7 +120,7 @@ if err != nil {
 
 ## What's Next?
 
-- [Library Tutorial](/tutorials/library-basics) - Complete walkthrough with examples
-- [Client Reference](/reference/library/client) - All client methods
-- [Options Reference](/reference/library/options) - Configuration options
-- [Errors Reference](/reference/library/errors) - All sentinel errors
+- [Library Tutorial](/docs/tutorials/library-basics) - Complete walkthrough with examples
+- [Client Reference](/docs/reference/library/client) - All client methods
+- [Options Reference](/docs/reference/library/options) - Configuration options
+- [Errors Reference](/docs/reference/library/errors) - All sentinel errors
