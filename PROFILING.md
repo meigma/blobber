@@ -20,7 +20,7 @@ Run a pull with CPU profiling and view the web UI:
 go run -tags=profiling ./cmd/profile \
   -mode pull \
   -profile cpu \
-  -ref docker.io/jmgilman/profiling:latest
+  -ref ghcr.io/meigma/blobber/profiling/profiling:latest
 
 go tool pprof -http=:0 profiles/cpu_pull_*.pprof
 ```
@@ -31,7 +31,7 @@ Run a push (no profiling) and just measure the timing:
 go run -tags=profiling ./cmd/profile \
   -mode push \
   -profile none \
-  -ref docker.io/jmgilman/profiling:latest \
+  -ref ghcr.io/meigma/blobber/profiling/profiling:latest \
   -payload tmp/profiledata
 ```
 
@@ -55,7 +55,7 @@ File names include the mode, label (if set), and a timestamp.
 go run -tags=profiling ./cmd/profile \
   -mode pull \
   -profile fgprof \
-  -ref docker.io/jmgilman/profiling:latest \
+  -ref ghcr.io/meigma/blobber/profiling/profiling:latest \
   -cache-dir tmp/profilecache \
   -clear-cache \
   -unique-dest \
@@ -65,7 +65,7 @@ go run -tags=profiling ./cmd/profile \
 go run -tags=profiling ./cmd/profile \
   -mode pull \
   -profile fgprof \
-  -ref docker.io/jmgilman/profiling:latest \
+  -ref ghcr.io/meigma/blobber/profiling/profiling:latest \
   -cache-dir tmp/profilecache \
   -unique-dest \
   -label warm
@@ -77,7 +77,7 @@ go run -tags=profiling ./cmd/profile \
 go run -tags=profiling ./cmd/profile \
   -mode pull \
   -profile cpu \
-  -ref docker.io/jmgilman/profiling:latest \
+  -ref ghcr.io/meigma/blobber/profiling/profiling:latest \
   -repeat 20 \
   -unique-dest \
   -label repeat20
@@ -89,7 +89,7 @@ go run -tags=profiling ./cmd/profile \
 go run -tags=profiling ./cmd/profile \
   -mode pull \
   -profile fgprof \
-  -ref docker.io/jmgilman/profiling:latest \
+  -ref ghcr.io/meigma/blobber/profiling/profiling:latest \
   -descriptor-cache \
   -repeat 10 \
   -unique-dest \
