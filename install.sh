@@ -378,7 +378,7 @@ main() {
 
     log_info "Installing ${BINARY_NAME} to ${dest_binary}"
     cp -- "$src_binary" "$dest_binary"
-    chmod +x -- "$dest_binary"
+    chmod +x "$dest_binary"
 
     echo ""
     log_success "${BOLD}Successfully installed ${BINARY_NAME} v${version}${NC}"
