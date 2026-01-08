@@ -21,7 +21,7 @@ blobber cache info
 Output:
 
 ```
-Cache: /Users/you/.blobber/cache
+Cache: /home/user/.cache/blobber
 Size:  150 MB (157286400 bytes)
 Entries: 3
 ```
@@ -37,7 +37,7 @@ blobber cache info --long
 Output:
 
 ```
-Cache: /Users/you/.blobber/cache
+Cache: /home/user/.cache/blobber
 Size:  150 MB (157286400 bytes)
 Entries: 3
 
@@ -106,12 +106,35 @@ Add to cron for daily cleanup:
 
 ## Cache Location
 
-Default: `~/.blobber/cache`
+Default: `~/.cache/blobber` (following XDG Base Directory Specification)
 
-To change permanently, set in your shell profile:
+To change permanently:
 
 ```bash
+# Option 1: Set in config file
+blobber config set cache.dir /path/to/cache
+
+# Option 2: Environment variable
 export BLOBBER_CACHE_DIR=/path/to/cache
+
+# Option 3: XDG override (affects all XDG-compliant apps)
+export XDG_CACHE_HOME=/custom/cache
+```
+
+## Bypass Cache Temporarily
+
+Skip caching for a single operation without changing settings:
+
+```bash
+blobber --no-cache pull ghcr.io/myorg/config:v1 ./output
+```
+
+## Disable Caching Permanently
+
+Turn off caching in the config file:
+
+```bash
+blobber config set cache.enabled false
 ```
 
 ## When to Clear vs Prune
@@ -122,7 +145,9 @@ export BLOBBER_CACHE_DIR=/path/to/cache
 | Regular maintenance | `cache prune --max-age 7d` |
 | Disk pressure | `cache prune --max-size 500MB` |
 | Troubleshooting | `cache clear` then retry |
+| Skip cache once | `--no-cache` flag |
 
 ## See Also
 
 - [CLI Reference: cache](/reference/cli/cache)
+- [How to Configure Blobber](/how-to/configure-blobber)

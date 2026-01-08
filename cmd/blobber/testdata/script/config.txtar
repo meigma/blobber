@@ -1,0 +1,42 @@
+# Test config commands
+# Note: XDG_CONFIG_HOME and XDG_CACHE_HOME are set by test setup to $WORK/.config and $WORK/.cache
+
+# Test config path shows XDG path
+exec blobber config path
+stdout '.config/blobber/config.yaml'
+! stderr .
+
+# Test config show displays defaults (no config file yet)
+exec blobber config
+stdout 'cache:'
+stdout 'enabled: true'
+! stderr .
+
+# Test config init creates file
+exec blobber config init
+stdout 'Created config file:'
+! stderr .
+exists $WORK/.config/blobber/config.yaml
+
+# Test config init fails if file already exists
+! exec blobber config init
+stderr 'config file already exists'
+
+# Test config set updates value
+exec blobber config set cache.enabled false
+stdout 'Updated cache.enabled = false'
+! stderr .
+
+# Test config show reflects the change
+exec blobber config
+stdout 'enabled: false'
+! stderr .
+
+# Test config set with non-boolean value
+exec blobber config set cache.dir /custom/path
+stdout 'Updated cache.dir = /custom/path'
+! stderr .
+
+exec blobber config
+stdout 'dir: /custom/path'
+! stderr .

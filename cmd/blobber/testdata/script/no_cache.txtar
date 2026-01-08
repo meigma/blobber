@@ -1,0 +1,44 @@
+# Test --no-cache flag bypasses caching
+# Note: XDG_CONFIG_HOME and XDG_CACHE_HOME are set by test setup to $WORK/.config and $WORK/.cache
+
+# Push test data to registry
+exec blobber push --insecure testdata $REGISTRY/cli-test/nocache:v1
+stdout 'sha256:'
+! stderr .
+
+# Pull without --no-cache - should populate cache
+exec blobber pull --insecure $REGISTRY/cli-test/nocache:v1 $WORK/output1
+! stderr .
+
+# Verify cache has an entry
+exec blobber cache info
+stdout 'Entries: 1'
+! stderr .
+
+# Clear the cache
+exec blobber cache clear --yes
+stdout 'Cleared 1 entries'
+! stderr .
+
+# Verify cache is empty
+exec blobber cache info
+stdout 'Cache is empty'
+! stderr .
+
+# Pull with --no-cache - should NOT populate cache
+exec blobber --no-cache pull --insecure $REGISTRY/cli-test/nocache:v1 $WORK/output2
+! stderr .
+
+# Verify files were still pulled
+exists $WORK/output2/config.yaml
+exists $WORK/output2/data.txt
+
+# Verify cache is still empty (--no-cache bypassed caching)
+exec blobber cache info
+stdout 'Cache is empty'
+! stderr .
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+test data file

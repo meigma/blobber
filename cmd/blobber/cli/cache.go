@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gilmanlab/blobber"
+	"github.com/gilmanlab/blobber/cmd/blobber/cli/config"
 )
 
 // Cache command flags
@@ -32,7 +33,7 @@ The cache stores downloaded blobs locally for faster subsequent access.
 Use subcommands to inspect, clear, or prune the cache.
 
 The cache directory can be specified with --dir. If not specified,
-the default location is ~/.blobber/cache.`,
+the default location is $XDG_CACHE_HOME/blobber (typically ~/.cache/blobber).`,
 }
 
 var cacheInfoCmd = &cobra.Command{
@@ -227,12 +228,14 @@ func runCachePrune(_ *cobra.Command, _ []string) error {
 }
 
 // defaultCacheDir returns the default cache directory path.
+// Uses XDG_CACHE_HOME/blobber, defaulting to ~/.cache/blobber.
 func defaultCacheDir() string {
-	home, err := os.UserHomeDir()
+	dir, err := config.CacheDir()
 	if err != nil {
-		return ".blobber/cache"
+		// Fallback if we can't determine home directory
+		return ".cache/blobber"
 	}
-	return home + "/.blobber/cache"
+	return dir
 }
 
 // truncateDigest shortens a digest for display.

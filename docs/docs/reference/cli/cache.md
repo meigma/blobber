@@ -16,13 +16,21 @@ blobber cache <subcommand> [flags]
 
 Blobber caches downloaded blobs locally to speed up repeated operations. The `cache` command provides subcommands to inspect and manage this cache.
 
-## Global Cache Flags
+## Global Flags
+
+The `--no-cache` flag on the root command bypasses caching entirely for a single operation:
+
+```bash
+blobber --no-cache pull ghcr.io/myorg/config:v1 ./output
+```
+
+## Cache Subcommand Flags
 
 These flags apply to all cache subcommands:
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--dir` | string | `~/.blobber/cache` | Cache directory path |
+| `--dir` | string | `~/.cache/blobber` | Cache directory path |
 
 ---
 
@@ -47,7 +55,7 @@ blobber cache info [flags]
 Short format:
 
 ```
-Cache: /Users/you/.blobber/cache
+Cache: /home/user/.cache/blobber
 Size:  150 MB (157286400 bytes)
 Entries: 3
 ```
@@ -55,7 +63,7 @@ Entries: 3
 Long format (`-l`):
 
 ```
-Cache: /Users/you/.blobber/cache
+Cache: /home/user/.cache/blobber
 Size:  150 MB (157286400 bytes)
 Entries: 3
 
@@ -195,12 +203,18 @@ blobber cache prune --max-age 24h --max-size 500MB
 
 ## Cache Location
 
-Default: `~/.blobber/cache`
+Default: `$XDG_CACHE_HOME/blobber` (typically `~/.cache/blobber`)
+
+The cache location follows the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html). Override with:
+
+- `--dir` flag on cache subcommands
+- `cache.dir` in config file
+- `BLOBBER_CACHE_DIR` environment variable
 
 Structure:
 
 ```
-~/.blobber/cache/
+~/.cache/blobber/
 ├── blobs/
 │   └── sha256/
 │       └── <digest>          # Cached blob data
@@ -212,3 +226,4 @@ Structure:
 ## See Also
 
 - [How to Manage Cache](/how-to/manage-cache) - Cache management strategies
+- [blobber config](/reference/cli/config) - Configuration management

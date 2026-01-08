@@ -52,6 +52,10 @@ func TestCLI(t *testing.T) {
 		Dir: "testdata/script",
 		Setup: func(env *testscript.Env) error {
 			env.Setenv("REGISTRY", registryHost)
+			// Set XDG paths to the work directory so cache/config
+			// operations work (testscript sets HOME=/no-home which is read-only)
+			env.Setenv("XDG_CACHE_HOME", env.WorkDir+"/.cache")
+			env.Setenv("XDG_CONFIG_HOME", env.WorkDir+"/.config")
 			return nil
 		},
 	})

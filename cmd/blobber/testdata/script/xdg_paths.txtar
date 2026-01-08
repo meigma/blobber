@@ -1,0 +1,31 @@
+# Test XDG path compliance
+# Note: XDG_CONFIG_HOME and XDG_CACHE_HOME are set by test setup to $WORK/.config and $WORK/.cache
+
+# Test config path uses XDG_CONFIG_HOME
+exec blobber config path
+stdout '.config/blobber/config.yaml'
+! stderr .
+
+# Push test data to registry
+exec blobber push --insecure testdata $REGISTRY/cli-test/xdg:v1
+stdout 'sha256:'
+! stderr .
+
+# Pull to populate cache (caching is enabled by default)
+exec blobber pull --insecure $REGISTRY/cli-test/xdg:v1 $WORK/output
+! stderr .
+
+# Verify cache info shows the XDG cache path
+exec blobber cache info
+stdout '.cache/blobber'
+stdout 'Entries: 1'
+! stderr .
+
+# Verify the cache directory was actually created at XDG path
+exists $WORK/.cache/blobber/blobs
+exists $WORK/.cache/blobber/entries
+
+-- testdata/config.yaml --
+hello from config.yaml
+-- testdata/data.txt --
+test data file

@@ -81,6 +81,27 @@ func main() {
 - **Selective retrieval** - Stream individual files via HTTP range requests
 - **Any OCI registry** - Works with GHCR, Docker Hub, ECR, GCR, or self-hosted registries
 - **Compression options** - gzip (default) or zstd
+- **Local caching** - Cache blobs locally for faster repeated operations
+
+## Configuration
+
+Blobber stores configuration in `~/.config/blobber/config.yaml` (following XDG conventions).
+
+```bash
+# View current configuration
+blobber config
+
+# Create default config file
+blobber config init
+
+# Disable caching
+blobber config set cache.enabled false
+
+# Bypass cache for a single command
+blobber --no-cache pull ghcr.io/myorg/config:v1 ./output
+```
+
+Configuration precedence: flags > environment variables > config file > defaults.
 
 ## Documentation
 
@@ -90,6 +111,7 @@ Full documentation is available at [blobber.gilman.io](https://blobber.gilman.io
 - [Library Getting Started](https://blobber.gilman.io/getting-started/library/installation)
 - [CLI Reference](https://blobber.gilman.io/reference/cli/push)
 - [Library Reference](https://blobber.gilman.io/reference/library/client)
+- [Configuration Guide](https://blobber.gilman.io/how-to/configure-blobber)
 
 ## Authentication
 
