@@ -82,5 +82,5 @@ Should return `{}`.
 
 ## See Also
 
-- [How to Authenticate](/how-to/authenticate)
-- [CLI Reference: push](/reference/cli/push)
+- [How to Authenticate](/docs/how-to/authenticate)
+- [CLI Reference: push](/docs/reference/cli/push)

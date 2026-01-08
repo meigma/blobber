@@ -88,5 +88,5 @@ blobber ls ghcr.io/myorg/config:v1
 
 ## See Also
 
-- [blobber cat](/reference/cli/cat) - Stream a single file
-- [About eStargz](/explanation/about-estargz) - Why listing is efficient
+- [blobber cat](/docs/reference/cli/cat) - Stream a single file
+- [About eStargz](/docs/explanation/about-estargz) - Why listing is efficient

@@ -5,7 +5,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 const config: Config = {
   title: "Blobber",
   tagline: "Push and pull files to OCI container registries",
-  favicon: "img/favicon.ico",
+  favicon: "img/logo-icon.png",
 
   future: {
     v4: true,
@@ -31,7 +31,6 @@ const config: Config = {
       {
         docs: {
           sidebarPath: "./sidebars.ts",
-          routeBasePath: "/",
           editUrl: "https://github.com/meigma/blobber/edit/master/docs/",
         },
         blog: false,
@@ -49,22 +48,24 @@ const config: Config = {
     },
     navbar: {
       title: "Blobber",
+      logo: {
+        alt: "Blobber Logo",
+        src: "img/logo-icon-black.png",
+        srcDark: "img/logo-icon.png",
+      },
       items: [
         {
           type: "docSidebar",
           sidebarId: "docs",
           position: "left",
           label: "Documentation",
-        },
-        {
-          href: "https://pkg.go.dev/github.com/meigma/blobber",
-          label: "Go Reference",
-          position: "right",
+          to: "/docs/intro",
         },
         {
           href: "https://github.com/meigma/blobber",
           label: "GitHub",
           position: "right",
+          className: "navbar__item--github",
         },
       ],
     },
