@@ -72,6 +72,7 @@ func init() {
 	rootCmd.PersistentFlags().String("trusted-root", "", "Path to trusted root JSON file")
 
 	// Bind flags to Viper (errors only occur if flag doesn't exist, which can't happen here)
+	// Uses nested keys (e.g., "sign.key") for consistent config file structure.
 	//nolint:errcheck // flags are defined above, so Lookup will never return nil
 	viper.BindPFlag("insecure", rootCmd.PersistentFlags().Lookup("insecure"))
 	//nolint:errcheck
@@ -83,30 +84,45 @@ func init() {
 	//nolint:errcheck
 	viper.BindPFlag("cache.verify", rootCmd.PersistentFlags().Lookup("cache-verify"))
 	//nolint:errcheck
-	viper.BindPFlag("sign", rootCmd.PersistentFlags().Lookup("sign"))
+	viper.BindPFlag("sign.enabled", rootCmd.PersistentFlags().Lookup("sign"))
 	//nolint:errcheck
-	viper.BindPFlag("sign-key", rootCmd.PersistentFlags().Lookup("sign-key"))
+	viper.BindPFlag("sign.key", rootCmd.PersistentFlags().Lookup("sign-key"))
 	//nolint:errcheck
-	viper.BindPFlag("sign-key-pass", rootCmd.PersistentFlags().Lookup("sign-key-pass"))
+	viper.BindPFlag("sign.password", rootCmd.PersistentFlags().Lookup("sign-key-pass"))
 	//nolint:errcheck
-	viper.BindPFlag("fulcio-url", rootCmd.PersistentFlags().Lookup("fulcio-url"))
+	viper.BindPFlag("sign.fulcio", rootCmd.PersistentFlags().Lookup("fulcio-url"))
 	//nolint:errcheck
-	viper.BindPFlag("rekor-url", rootCmd.PersistentFlags().Lookup("rekor-url"))
+	viper.BindPFlag("sign.rekor", rootCmd.PersistentFlags().Lookup("rekor-url"))
 	//nolint:errcheck
-	viper.BindPFlag("verify", rootCmd.PersistentFlags().Lookup("verify"))
+	viper.BindPFlag("verify.enabled", rootCmd.PersistentFlags().Lookup("verify"))
 	//nolint:errcheck
-	viper.BindPFlag("verify-unsafe", rootCmd.PersistentFlags().Lookup("verify-unsafe"))
+	viper.BindPFlag("verify.unsafe", rootCmd.PersistentFlags().Lookup("verify-unsafe"))
 	//nolint:errcheck
-	viper.BindPFlag("verify-issuer", rootCmd.PersistentFlags().Lookup("verify-issuer"))
+	viper.BindPFlag("verify.issuer", rootCmd.PersistentFlags().Lookup("verify-issuer"))
 	//nolint:errcheck
-	viper.BindPFlag("verify-subject", rootCmd.PersistentFlags().Lookup("verify-subject"))
+	viper.BindPFlag("verify.subject", rootCmd.PersistentFlags().Lookup("verify-subject"))
 	//nolint:errcheck
-	viper.BindPFlag("trusted-root", rootCmd.PersistentFlags().Lookup("trusted-root"))
+	viper.BindPFlag("verify.trusted-root", rootCmd.PersistentFlags().Lookup("trusted-root"))
 
-	// Set defaults
+	// Set defaults for all configuration options
+	// Cache defaults
 	viper.SetDefault("cache.enabled", true)
 	viper.SetDefault("cache.dir", "") // Empty means use XDG default
 	viper.SetDefault("cache.verify", false)
+
+	// Signing defaults
+	viper.SetDefault("sign.enabled", false)
+	viper.SetDefault("sign.key", "")
+	viper.SetDefault("sign.password", "")
+	viper.SetDefault("sign.fulcio", defaultFulcioURL)
+	viper.SetDefault("sign.rekor", defaultRekorURL)
+
+	// Verification defaults
+	viper.SetDefault("verify.enabled", false)
+	viper.SetDefault("verify.unsafe", false)
+	viper.SetDefault("verify.issuer", "")
+	viper.SetDefault("verify.subject", "")
+	viper.SetDefault("verify.trusted-root", "")
 
 	rootCmd.Version = version
 }
@@ -190,8 +206,8 @@ func newClient() (*blobber.Client, error) {
 		}
 	}
 
-	// Configure signer if --sign flag is set
-	if viper.GetBool("sign") {
+	// Configure signer if sign.enabled is set
+	if viper.GetBool("sign.enabled") {
 		signer, err := createSigner()
 		if err != nil {
 			return nil, fmt.Errorf("configure signer: %w", err)
@@ -199,8 +215,8 @@ func newClient() (*blobber.Client, error) {
 		opts = append(opts, blobber.WithSigner(signer))
 	}
 
-	// Configure verifier if --verify flag is set
-	if viper.GetBool("verify") {
+	// Configure verifier if verify.enabled is set
+	if viper.GetBool("verify.enabled") {
 		verifier, err := createVerifier()
 		if err != nil {
 			return nil, fmt.Errorf("configure verifier: %w", err)
@@ -213,7 +229,7 @@ func newClient() (*blobber.Client, error) {
 
 // createSigner creates a sigstore signer with configured options.
 func createSigner() (blobber.Signer, error) {
-	keyFile := viper.GetString("sign-key")
+	keyFile := viper.GetString("sign.key")
 
 	// Key-based signing (no Fulcio needed)
 	if keyFile != "" {
@@ -224,7 +240,7 @@ func createSigner() (blobber.Signer, error) {
 		}
 
 		var password []byte
-		if pass := viper.GetString("sign-key-pass"); pass != "" {
+		if pass := viper.GetString("sign.password"); pass != "" {
 			password = []byte(pass)
 		}
 
@@ -232,7 +248,7 @@ func createSigner() (blobber.Signer, error) {
 		opts = append(opts, sigstore.WithPrivateKeyPEM(keyData, password))
 
 		// Optionally add Rekor for transparency
-		if rekorURL := viper.GetString("rekor-url"); rekorURL != "" {
+		if rekorURL := viper.GetString("sign.rekor"); rekorURL != "" {
 			opts = append(opts, sigstore.WithRekor(rekorURL))
 		}
 
@@ -240,8 +256,8 @@ func createSigner() (blobber.Signer, error) {
 	}
 
 	// Keyless signing (default)
-	fulcioURL := viper.GetString("fulcio-url")
-	rekorURL := viper.GetString("rekor-url")
+	fulcioURL := viper.GetString("sign.fulcio")
+	rekorURL := viper.GetString("sign.rekor")
 
 	return sigstore.NewSigner(
 		sigstore.WithEphemeralKey(),
@@ -255,14 +271,14 @@ func createVerifier() (blobber.Verifier, error) {
 	var opts []sigstore.VerifierOption
 
 	// Load custom trusted root if specified
-	if trustedRoot := viper.GetString("trusted-root"); trustedRoot != "" {
+	if trustedRoot := viper.GetString("verify.trusted-root"); trustedRoot != "" {
 		opts = append(opts, sigstore.WithTrustedRootFile(trustedRoot))
 	}
 
 	// Parse identity requirement if specified
-	issuer := viper.GetString("verify-issuer")
-	subject := viper.GetString("verify-subject")
-	allowAny := viper.GetBool("verify-unsafe")
+	issuer := viper.GetString("verify.issuer")
+	subject := viper.GetString("verify.subject")
+	allowAny := viper.GetBool("verify.unsafe")
 	if issuer == "" && subject == "" {
 		if !allowAny {
 			return nil, errors.New("--verify requires --verify-issuer and --verify-subject (or --verify-unsafe)")

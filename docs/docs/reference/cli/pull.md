@@ -144,6 +144,32 @@ When `--verify` is specified:
 
 **Note:** `--verify` requires either `--verify-issuer` + `--verify-subject` or `--verify-unsafe`.
 
+## Configuration
+
+Verification options can be configured via config file or environment variables:
+
+**Config file** (`~/.config/blobber/config.yaml`):
+
+```yaml
+verify:
+  enabled: true
+  issuer: https://accounts.google.com
+  subject: developer@company.com
+  trusted-root: /path/to/trusted-root.json
+```
+
+**Environment variables**:
+
+| Variable | Description |
+|----------|-------------|
+| `BLOBBER_VERIFY_ENABLED` | Enable signature verification |
+| `BLOBBER_VERIFY_ISSUER` | Required OIDC issuer URL |
+| `BLOBBER_VERIFY_SUBJECT` | Required signer identity |
+| `BLOBBER_VERIFY_UNSAFE` | Accept any valid signature |
+| `BLOBBER_VERIFY_TRUSTED_ROOT` | Path to custom trusted root |
+
+See [How to Configure Blobber](/docs/how-to/configure-blobber) for details.
+
 ## See Also
 
 - [blobber push](/docs/reference/cli/push) - Upload to registry

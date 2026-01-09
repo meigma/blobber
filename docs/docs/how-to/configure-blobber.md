@@ -39,6 +39,12 @@ cache:
   dir: ""
   enabled: true
   verify: false
+sign:
+  enabled: false
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+verify:
+  enabled: false
 insecure: false
 no-cache: false
 verbose: false
@@ -126,6 +132,12 @@ cache:
   enabled: true
   dir: ""
   verify: false
+sign:
+  enabled: false
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+verify:
+  enabled: false
 ```
 
 Edit with any text editor:
@@ -158,14 +170,26 @@ blobber cache info   # Shows /custom/cache/blobber
 
 ## Configure Signing Defaults
 
-Set default Sigstore URLs via environment variables:
+### Via Config File
 
-```bash
-export BLOBBER_FULCIO_URL=https://fulcio.internal.example.com
-export BLOBBER_REKOR_URL=https://rekor.internal.example.com
+```yaml
+sign:
+  enabled: true
+  key: /path/to/private-key.pem  # For key-based signing
+  fulcio: https://fulcio.internal.example.com
+  rekor: https://rekor.internal.example.com
 ```
 
-Or via command-line flags:
+### Via Environment Variables
+
+```bash
+export BLOBBER_SIGN_ENABLED=true
+export BLOBBER_SIGN_KEY=/path/to/private-key.pem
+export BLOBBER_SIGN_FULCIO=https://fulcio.internal.example.com
+export BLOBBER_SIGN_REKOR=https://rekor.internal.example.com
+```
+
+### Via Command-Line Flags
 
 ```bash
 blobber push --sign --fulcio-url https://fulcio.internal --rekor-url https://rekor.internal ./config ghcr.io/org/config:v1
@@ -173,12 +197,23 @@ blobber push --sign --fulcio-url https://fulcio.internal --rekor-url https://rek
 
 ## Configure Verification Defaults
 
-Set default verification options via environment variables:
+### Via Config File
+
+```yaml
+verify:
+  enabled: true
+  issuer: https://accounts.google.com
+  subject: ci@company.com
+  trusted-root: /path/to/trusted-root.json
+```
+
+### Via Environment Variables
 
 ```bash
+export BLOBBER_VERIFY_ENABLED=true
 export BLOBBER_VERIFY_ISSUER=https://accounts.google.com
 export BLOBBER_VERIFY_SUBJECT=ci@company.com
-export BLOBBER_TRUSTED_ROOT=/path/to/trusted-root.json
+export BLOBBER_VERIFY_TRUSTED_ROOT=/path/to/trusted-root.json
 ```
 
 ## See Also

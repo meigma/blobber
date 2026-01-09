@@ -94,6 +94,32 @@ Push with custom Sigstore infrastructure:
 blobber push --sign --fulcio-url https://fulcio.internal --rekor-url https://rekor.internal ./config ghcr.io/myorg/config:v1
 ```
 
+## Configuration
+
+Signing options can be configured via config file or environment variables:
+
+**Config file** (`~/.config/blobber/config.yaml`):
+
+```yaml
+sign:
+  enabled: true
+  key: /path/to/private-key.pem
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+```
+
+**Environment variables**:
+
+| Variable | Description |
+|----------|-------------|
+| `BLOBBER_SIGN_ENABLED` | Enable signing |
+| `BLOBBER_SIGN_KEY` | Path to private key |
+| `BLOBBER_SIGN_PASSWORD` | Private key password |
+| `BLOBBER_SIGN_FULCIO` | Fulcio CA URL |
+| `BLOBBER_SIGN_REKOR` | Rekor transparency log URL |
+
+See [How to Configure Blobber](/docs/how-to/configure-blobber) for details.
+
 ## Notes
 
 - Symbolic links are preserved in the archive
