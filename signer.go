@@ -10,6 +10,24 @@ import (
 // SignatureArtifactType is the OCI artifact type for sigstore bundles.
 const SignatureArtifactType = "application/vnd.dev.sigstore.bundle.v0.3+json"
 
+// knownSignatureTypes lists artifact types that are recognized as signatures.
+// Used to distinguish signatures from other referrer types (SBOMs, attestations).
+var knownSignatureTypes = map[string]bool{
+	// Sigstore bundle format (blobber default)
+	"application/vnd.dev.sigstore.bundle.v0.3+json": true,
+	// Cosign simple signing format
+	"application/vnd.dev.cosign.simplesigning.v1+json": true,
+	// Notation signature format
+	"application/vnd.cncf.notary.signature": true,
+}
+
+// IsSignatureArtifactType reports whether the artifact type represents a signature.
+// Returns true for known signature formats (sigstore, cosign, notation).
+// Returns false for non-signature artifacts like SBOMs or attestations.
+func IsSignatureArtifactType(artifactType string) bool {
+	return knownSignatureTypes[artifactType]
+}
+
 // Signature holds a cryptographic signature and its format metadata.
 type Signature struct {
 	// Data contains the signature bytes (format is implementation-specific).

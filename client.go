@@ -12,6 +12,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
+	"github.com/meigma/blobber/core"
 	"github.com/meigma/blobber/internal/archive"
 	"github.com/meigma/blobber/internal/cache"
 	"github.com/meigma/blobber/internal/registry"
@@ -289,21 +290,28 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 
 // verifyManifestSignature verifies signatures attached to a specific manifest digest.
 func (c *Client) verifyManifestSignature(ctx context.Context, ref, manifestDigest string, manifestBytes []byte) error {
-	// Fetch signature referrers
-	// Use empty artifact type to fetch all referrers, allowing custom signers
-	// with different media types to be discovered and verified.
+	// Fetch all referrers (signatures, SBOMs, attestations, etc.)
 	referrers, err := c.registry.FetchReferrers(ctx, ref, manifestDigest, "")
 	if err != nil {
-		return fmt.Errorf("fetching signatures: %w", err)
+		return fmt.Errorf("fetching referrers: %w", err)
 	}
 
-	if len(referrers) == 0 {
+	// Filter to only signature-type referrers
+	// This prevents SBOMs/attestations from being treated as failed signatures
+	var signatureReferrers []core.Referrer
+	for _, r := range referrers {
+		if IsSignatureArtifactType(r.ArtifactType) {
+			signatureReferrers = append(signatureReferrers, r)
+		}
+	}
+
+	if len(signatureReferrers) == 0 {
 		return ErrNoSignature
 	}
 
 	// Try to verify at least one signature
 	var lastErr error
-	for _, referrer := range referrers {
+	for _, referrer := range signatureReferrers {
 		sigData, fetchErr := c.registry.FetchReferrer(ctx, ref, referrer.Digest)
 		if fetchErr != nil {
 			lastErr = fetchErr
