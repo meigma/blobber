@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/opencontainers/go-digest"
 	"oras.land/oras-go/v2/registry/remote/credentials"
 
 	"github.com/meigma/blobber/internal/archive"
@@ -35,6 +36,10 @@ type Client struct {
 	backgroundPrefetch bool
 	lazyLoading        bool
 	cacheTTL           time.Duration
+
+	// signing configuration (opt-in)
+	signer   Signer
+	verifier Verifier
 }
 
 // NewClient creates a new blobber client.
@@ -101,7 +106,18 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 //
 // If a cache is configured (via WithCacheDir), the blob will be fetched from cache
 // if available, or downloaded and cached for future use.
+//
+// If a verifier is configured (via WithVerifier), signatures are verified before
+// returning. Returns ErrNoSignature if no signatures are found, or ErrSignatureInvalid
+// if verification fails.
 func (c *Client) OpenImage(ctx context.Context, ref string) (*Image, error) {
+	// Verify signature if verifier configured
+	if c.verifier != nil {
+		if err := c.verifySignature(ctx, ref); err != nil {
+			return nil, err
+		}
+	}
+
 	// Use cache if available
 	if c.cache != nil {
 		return c.openImageCached(ctx, ref)
@@ -196,4 +212,63 @@ func (c *Client) hasCachedBlob(desc LayerDescriptor) bool {
 	}
 
 	return true
+}
+
+// verifySignature verifies that at least one valid signature exists for the image.
+func (c *Client) verifySignature(ctx context.Context, ref string) error {
+	// Resolve the manifest digest
+	desc, err := c.registry.ResolveLayer(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("resolve %s for verification: %w", ref, err)
+	}
+
+	manifestDigest := desc.ManifestDigest
+	if manifestDigest == "" {
+		return fmt.Errorf("no manifest digest for %s", ref)
+	}
+
+	// Fetch signature referrers
+	referrers, err := c.registry.FetchReferrers(ctx, ref, manifestDigest, SignatureArtifactType)
+	if err != nil {
+		return fmt.Errorf("fetching signatures for %s: %w", ref, err)
+	}
+
+	if len(referrers) == 0 {
+		return ErrNoSignature
+	}
+
+	// Try to verify at least one signature
+	var lastErr error
+	for _, referrer := range referrers {
+		sigData, err := c.registry.FetchReferrer(ctx, ref, referrer.Digest)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		sig := &Signature{
+			Data:      sigData,
+			MediaType: referrer.ArtifactType,
+		}
+
+		d, err := digest.Parse(manifestDigest)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if err := c.verifier.Verify(ctx, d, []byte(manifestDigest), sig); err != nil {
+			lastErr = err
+			continue
+		}
+
+		// At least one signature verified successfully
+		return nil
+	}
+
+	// All signatures failed
+	if lastErr != nil {
+		return fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
+	}
+	return ErrSignatureInvalid
 }

@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"time"
+
+	"github.com/opencontainers/go-digest"
+
+	"github.com/meigma/blobber/core"
 )
 
 // Push uploads files from src to the given image reference.
@@ -35,10 +40,44 @@ func (c *Client) Push(ctx context.Context, ref string, src fs.FS, opts ...PushOp
 		BlobSize:    result.BlobSize,
 	}
 
-	digest, err := c.registry.Push(ctx, ref, result.Blob, &regOpts)
+	manifestDigest, err := c.registry.Push(ctx, ref, result.Blob, &regOpts)
 	if err != nil {
 		return "", fmt.Errorf("push %s: %w", ref, err)
 	}
 
-	return digest, nil
+	// Sign and store as referrer if signer configured
+	if c.signer != nil {
+		if err := c.signAndStoreReferrer(ctx, ref, manifestDigest); err != nil {
+			return "", fmt.Errorf("sign %s: %w", ref, err)
+		}
+	}
+
+	return manifestDigest, nil
+}
+
+// signAndStoreReferrer signs the manifest and stores the signature as an OCI referrer.
+func (c *Client) signAndStoreReferrer(ctx context.Context, ref, manifestDigest string) error {
+	d, err := digest.Parse(manifestDigest)
+	if err != nil {
+		return fmt.Errorf("parse digest: %w", err)
+	}
+
+	// Sign the manifest digest (payload is the digest string)
+	sig, err := c.signer.Sign(ctx, d, []byte(manifestDigest))
+	if err != nil {
+		return fmt.Errorf("signing: %w", err)
+	}
+
+	// Store signature as OCI referrer artifact
+	_, err = c.registry.PushReferrer(ctx, ref, manifestDigest, sig.Data, &core.ReferrerPushOptions{
+		ArtifactType: sig.MediaType,
+		Annotations: map[string]string{
+			"org.opencontainers.image.created": time.Now().UTC().Format(time.RFC3339),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("storing signature: %w", err)
+	}
+
+	return nil
 }

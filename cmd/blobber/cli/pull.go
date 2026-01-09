@@ -21,9 +21,14 @@ var pullCmd = &cobra.Command{
 By default, files are merged into the destination directory. If a file already
 exists, the operation fails. Use --overwrite to replace existing files.
 
+Use --verify to verify the artifact's Sigstore signature before pulling.
+Optionally specify --verify-identity to require a specific signer identity.
+
 Examples:
   blobber pull ghcr.io/org/config:v1 ./config
-  blobber pull ghcr.io/org/data:latest ./data --overwrite`,
+  blobber pull ghcr.io/org/data:latest ./data --overwrite
+  blobber pull ghcr.io/org/data:latest ./data --verify
+  blobber pull ghcr.io/org/data:latest ./data --verify --verify-identity "https://accounts.google.com,user@example.com"`,
 	Args: cobra.ExactArgs(2),
 	RunE: runPull,
 }

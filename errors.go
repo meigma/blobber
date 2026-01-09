@@ -25,4 +25,10 @@ var (
 
 	// ErrClosed indicates an operation was attempted on a closed resource.
 	ErrClosed = core.ErrClosed
+
+	// ErrSignatureInvalid indicates signature verification failed.
+	ErrSignatureInvalid = core.ErrSignatureInvalid
+
+	// ErrNoSignature indicates no signature was found when verification was required.
+	ErrNoSignature = core.ErrNoSignature
 )

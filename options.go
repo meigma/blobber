@@ -187,6 +187,27 @@ func WithCacheTTL(ttl time.Duration) ClientOption {
 	}
 }
 
+// WithSigner configures signing for push operations.
+// When set, Push will invoke the signer after successfully pushing the artifact
+// and store the signature as an OCI referrer artifact.
+func WithSigner(s Signer) ClientOption {
+	return func(c *Client) error {
+		c.signer = s
+		return nil
+	}
+}
+
+// WithVerifier configures verification for pull/open operations.
+// When set, OpenImage will fetch and verify signatures before returning.
+// Returns ErrNoSignature if no signatures are found.
+// Returns ErrSignatureInvalid if verification fails.
+func WithVerifier(v Verifier) ClientOption {
+	return func(c *Client) error {
+		c.verifier = v
+		return nil
+	}
+}
+
 // staticCredentials returns a credential store with a single static credential.
 func staticCredentials(registryHost, username, password string) credentials.Store {
 	return registry.StaticCredentials(registryHost, username, password)

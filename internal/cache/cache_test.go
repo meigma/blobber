@@ -92,6 +92,18 @@ func (m *mockRegistry) FetchBlobRange(_ context.Context, _ string, desc core.Lay
 	return io.NopCloser(bytes.NewReader(data[offset:end])), nil
 }
 
+func (m *mockRegistry) PushReferrer(_ context.Context, _, _ string, _ []byte, _ *core.ReferrerPushOptions) (string, error) {
+	return "", nil
+}
+
+func (m *mockRegistry) FetchReferrers(_ context.Context, _, _, _ string) ([]core.Referrer, error) {
+	return nil, nil
+}
+
+func (m *mockRegistry) FetchReferrer(_ context.Context, _, _ string) ([]byte, error) {
+	return nil, core.ErrNotFound
+}
+
 // createTestBlob creates test data with a known digest.
 func createTestBlob(content string) (data []byte, digest string) {
 	data = []byte(content)
