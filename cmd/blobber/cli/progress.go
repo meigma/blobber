@@ -1,10 +1,11 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"sync"
 
-	"github.com/schollz/progressbar/v3"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
 
@@ -40,18 +41,65 @@ func shouldShowProgress() bool {
 	return term.IsTerminal(int(os.Stderr.Fd()))
 }
 
-// newProgressBar creates a new progress bar for byte-based operations.
-func newProgressBar(total int64, description string) *progressbar.ProgressBar {
-	return progressbar.NewOptions64(
-		total,
-		progressbar.OptionSetDescription(description),
-		progressbar.OptionSetWriter(os.Stderr),
-		progressbar.OptionShowBytes(true),
-		progressbar.OptionSetWidth(40),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetRenderBlankState(true),
-		progressbar.OptionUseANSICodes(true),
+// charmProgress wraps the charmbracelet progress bar for byte-based operations.
+type charmProgress struct {
+	bar         progress.Model
+	description string
+	total       int64
+}
+
+// newCharmProgress creates a new charmbracelet progress bar.
+func newCharmProgress(total int64, description string) *charmProgress {
+	bar := progress.New(
+		progress.WithDefaultGradient(),
+		progress.WithWidth(40),
+		progress.WithoutPercentage(),
 	)
+
+	return &charmProgress{
+		bar:         bar,
+		description: description,
+		total:       total,
+	}
+}
+
+// render outputs the progress bar to stderr.
+func (p *charmProgress) render(transferred int64) {
+	var percent float64
+	if p.total > 0 {
+		percent = float64(transferred) / float64(p.total)
+	}
+
+	// Format bytes transferred and total
+	transferredStr := formatBytes(transferred)
+	totalStr := formatBytes(p.total)
+
+	// Clear the line and render the progress bar
+	fmt.Fprintf(os.Stderr, "\r\033[K%s %s %s/%s",
+		p.description,
+		p.bar.ViewAs(percent),
+		transferredStr,
+		totalStr,
+	)
+}
+
+// finish completes the progress bar display.
+func (p *charmProgress) finish() {
+	fmt.Fprintln(os.Stderr)
+}
+
+// formatBytes formats bytes in a human-readable format.
+func formatBytes(b int64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 // newPushProgress creates a progress callback for push operations.
@@ -62,23 +110,21 @@ func newPushProgress() (callback blobber.ProgressCallback, finish func()) {
 		return nil, func() {}
 	}
 
-	var bar *progressbar.ProgressBar
+	var bar *charmProgress
 	var once sync.Once
 
 	callback = func(event blobber.ProgressEvent) {
 		once.Do(func() {
-			bar = newProgressBar(event.TotalBytes, "Uploading")
+			bar = newCharmProgress(event.TotalBytes, "Uploading")
 		})
 		if bar != nil {
-			//nolint:errcheck // progress bar errors are not critical
-			bar.Set64(event.BytesTransferred)
+			bar.render(event.BytesTransferred)
 		}
 	}
 
 	finish = func() {
 		if bar != nil {
-			//nolint:errcheck // progress bar errors are not critical
-			bar.Finish()
+			bar.finish()
 		}
 	}
 
@@ -93,23 +139,21 @@ func newPullProgress() (callback blobber.ProgressCallback, finish func()) {
 		return nil, func() {}
 	}
 
-	var bar *progressbar.ProgressBar
+	var bar *charmProgress
 	var once sync.Once
 
 	callback = func(event blobber.ProgressEvent) {
 		once.Do(func() {
-			bar = newProgressBar(event.TotalBytes, "Downloading")
+			bar = newCharmProgress(event.TotalBytes, "Downloading")
 		})
 		if bar != nil {
-			//nolint:errcheck // progress bar errors are not critical
-			bar.Set64(event.BytesTransferred)
+			bar.render(event.BytesTransferred)
 		}
 	}
 
 	finish = func() {
 		if bar != nil {
-			//nolint:errcheck // progress bar errors are not critical
-			bar.Finish()
+			bar.finish()
 		}
 	}
 

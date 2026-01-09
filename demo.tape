@@ -6,8 +6,8 @@ Output demo.gif
 
 Set Shell bash
 Set FontSize 15
-Set Width 800
-Set Height 320
+Set Width 900
+Set Height 400
 Set Theme "Dracula"
 Set TypingSpeed 25ms
 Set WindowBar Colorful
