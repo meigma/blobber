@@ -263,6 +263,7 @@ func createSigner() (blobber.Signer, error) {
 		sigstore.WithEphemeralKey(),
 		sigstore.WithFulcio(fulcioURL),
 		sigstore.WithRekor(rekorURL),
+		sigstore.WithAmbientCredentials(),
 	)
 }
 

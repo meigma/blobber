@@ -12,10 +12,15 @@ import (
 	"github.com/meigma/blobber"
 )
 
+// TokenProvider is a function that returns an OIDC token.
+// Used for keyless signing with Fulcio.
+type TokenProvider func(ctx context.Context) (string, error)
+
 // Signer implements blobber.Signer using sigstore-go.
 type Signer struct {
-	keypair sign.Keypair
-	opts    sign.BundleOptions
+	keypair       sign.Keypair
+	opts          sign.BundleOptions
+	tokenProvider TokenProvider
 }
 
 // NewSigner creates a sigstore-based signer.
@@ -41,6 +46,17 @@ func (s *Signer) Sign(ctx context.Context, manifestDigest digest.Digest, payload
 
 	opts := s.opts
 	opts.Context = ctx
+
+	// Get OIDC token if using Fulcio (keyless signing)
+	if s.tokenProvider != nil && opts.CertificateProvider != nil {
+		token, err := s.tokenProvider(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("sigstore get token: %w", err)
+		}
+		opts.CertificateProviderOptions = &sign.CertificateProviderOptions{
+			IDToken: token,
+		}
+	}
 
 	bundle, err := sign.Bundle(content, s.keypair, opts)
 	if err != nil {

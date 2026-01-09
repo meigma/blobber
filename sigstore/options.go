@@ -1,6 +1,7 @@
 package sigstore
 
 import (
+	"context"
 	"crypto"
 	"log/slog"
 
@@ -30,11 +31,33 @@ func WithEphemeralKey() SignerOption {
 
 // WithFulcio enables certificate issuance via Fulcio CA for keyless signing.
 // The baseURL should be the Fulcio server URL (e.g., "https://fulcio.sigstore.dev").
+// When using Fulcio, you must also configure an OIDC token source using
+// WithIDToken or WithAmbientCredentials.
 func WithFulcio(baseURL string) SignerOption {
 	return func(s *Signer) error {
 		s.opts.CertificateProvider = sign.NewFulcio(&sign.FulcioOptions{
 			BaseURL: baseURL,
 		})
+		return nil
+	}
+}
+
+// WithIDToken sets a static OIDC token for Fulcio authentication.
+// Use this when you have already obtained the token (e.g., from a CI environment).
+func WithIDToken(token string) SignerOption {
+	return func(s *Signer) error {
+		s.tokenProvider = func(_ context.Context) (string, error) {
+			return token, nil
+		}
+		return nil
+	}
+}
+
+// WithAmbientCredentials enables automatic OIDC token detection from CI environments.
+// Currently supports GitHub Actions (via ACTIONS_ID_TOKEN_REQUEST_* env vars).
+func WithAmbientCredentials() SignerOption {
+	return func(s *Signer) error {
+		s.tokenProvider = GetAmbientToken
 		return nil
 	}
 }
