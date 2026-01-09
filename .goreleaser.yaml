@@ -94,7 +94,7 @@ changelog:
 brews:
   - repository:
       owner: meigma
-      name: tap
+      name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/meigma/blobber"
