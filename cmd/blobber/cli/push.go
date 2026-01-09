@@ -86,6 +86,7 @@ func runPush(_ *cobra.Command, args []string) error {
 	}
 
 	// Output digest on success
+	fmt.Println()
 	fmt.Println(digest)
 	return nil
 }
