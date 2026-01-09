@@ -19,7 +19,7 @@ stdout 'config.yaml'
 # Test long format with -l flag
 exec blobber ls -l --insecure $REGISTRY/cli-test/list:v1
 stdout 'config.yaml'
-stdout '0644'
+stdout '-rw-r--r--'
 ! stderr .
 
 -- testdata/config.yaml --
