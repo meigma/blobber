@@ -65,8 +65,18 @@ func runPull(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot create destination directory: %w", err)
 	}
 
+	// Set up progress tracking
+	progressCallback, finishProgress := newPullProgress()
+	defer finishProgress()
+
+	// Build pull options
+	var pullOpts []blobber.PullOption
+	if progressCallback != nil {
+		pullOpts = append(pullOpts, blobber.WithPullProgress(progressCallback))
+	}
+
 	// Pull
-	return client.Pull(ctx, ref, destDir)
+	return client.Pull(ctx, ref, destDir, pullOpts...)
 }
 
 // handlePullConflicts checks for and handles file conflicts.

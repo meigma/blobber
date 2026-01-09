@@ -67,8 +67,20 @@ func runPush(_ *cobra.Command, args []string) error {
 	ctx, cancel := signalContext()
 	defer cancel()
 
+	// Set up progress tracking
+	progressCallback, finishProgress := newPushProgress()
+	defer finishProgress()
+
+	// Build push options
+	pushOpts := []blobber.PushOption{
+		blobber.WithCompression(compression),
+	}
+	if progressCallback != nil {
+		pushOpts = append(pushOpts, blobber.WithPushProgress(progressCallback))
+	}
+
 	// Push
-	digest, err := client.Push(ctx, ref, os.DirFS(dir), blobber.WithCompression(compression))
+	digest, err := client.Push(ctx, ref, os.DirFS(dir), pushOpts...)
 	if err != nil {
 		return err
 	}

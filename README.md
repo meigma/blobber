@@ -11,6 +11,12 @@
 Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob/main/docs/estargz.md) format to enable listing and selective retrieval of files without downloading entire images.
 Listing and streaming require eStargz images; Blobber pushes eStargz by default.
 
+<p align="center">
+  <a href="https://blobber.meigma.dev">
+    <img src="docs/static/img/demo.gif" alt="Blobber CLI Demo" width="700">
+  </a>
+</p>
+
 ## Quick Start
 
 ```bash

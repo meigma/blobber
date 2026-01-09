@@ -8,6 +8,7 @@ import (
 	"github.com/opencontainers/go-digest"
 
 	"github.com/meigma/blobber/internal/archive"
+	"github.com/meigma/blobber/internal/progress"
 )
 
 // Pull downloads all files from the image to the destination directory.
@@ -53,7 +54,10 @@ func (c *Client) Pull(ctx context.Context, ref, destDir string, opts ...PullOpti
 		return fmt.Errorf("pull %s: %w", ref, err)
 	}
 
-	return c.extractWithDigest(ctx, ref, destDir, blob, desc, cfg.limits)
+	// Wrap blob for progress tracking if callback provided
+	blobReader := wrapReaderForProgress(blob, desc.Size, cfg.progress)
+
+	return c.extractWithDigest(ctx, ref, destDir, blobReader, desc, cfg.limits)
 }
 
 // pullCached pulls an image using the cache.
@@ -89,7 +93,10 @@ func (c *Client) pullCached(ctx context.Context, ref, destDir string, cfg *pullC
 		return fmt.Errorf("open cached blob %s: %w", ref, err)
 	}
 
-	return c.extractWithDigest(ctx, ref, destDir, blob, desc, cfg.limits)
+	// Wrap blob for progress tracking if callback provided
+	blobReader := wrapReaderForProgress(blob, desc.Size, cfg.progress)
+
+	return c.extractWithDigest(ctx, ref, destDir, blobReader, desc, cfg.limits)
 }
 
 func (c *Client) extractWithDigest(ctx context.Context, ref, destDir string, blob io.ReadCloser, desc LayerDescriptor, limits ExtractLimits) error {
@@ -111,4 +118,32 @@ func (c *Client) extractWithDigest(ctx context.Context, ref, destDir string, blo
 	}
 
 	return nil
+}
+
+// wrapReaderForProgress wraps an io.ReadCloser with progress tracking.
+// If callback is nil, returns the original reader unchanged.
+func wrapReaderForProgress(r io.ReadCloser, total int64, callback ProgressCallback) io.ReadCloser {
+	if callback == nil {
+		return r
+	}
+	return &progressReadCloser{
+		Reader: progress.NewReader(r, total, func(transferred, totalBytes int64) {
+			callback(ProgressEvent{
+				Operation:        "pull",
+				BytesTransferred: transferred,
+				TotalBytes:       totalBytes,
+			})
+		}),
+		closer: r,
+	}
+}
+
+// progressReadCloser wraps a progress.Reader and delegates Close to the original reader.
+type progressReadCloser struct {
+	*progress.Reader
+	closer io.Closer
+}
+
+func (p *progressReadCloser) Close() error {
+	return p.closer.Close()
 }

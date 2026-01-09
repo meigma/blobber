@@ -116,53 +116,25 @@ function HomepageHeader() {
                         {siteConfig.tagline}. Stream the exact files you need without pulling
                         entire layers.
                     </p>
-                    <div className="hero-pills">
-                        <span className="hero-pill">OCI native</span>
-                        <span className="hero-pill">eStargz indexing</span>
-                        <span className="hero-pill">Sigstore signing</span>
-                        <span className="hero-pill">CLI + Go SDK</span>
-                    </div>
                     <div className="hero-ctas">
                         <Link
                             className="button button--lg hero-cta"
                             to="/docs/getting-started/cli/installation">
                             Get Started
                         </Link>
-                        <Link
-                            className="button button--lg button--outline hero-cta-outline"
-                            to="https://github.com/meigma/blobber">
-                            GitHub
-                        </Link>
                     </div>
                     <div className="hero-install">
                         <div className="hero-install__label">Install in one line</div>
-                        <div className="hero-install__commands">
-                            <CopyableCommand command="curl -fsSL https://blobber.meigma.dev/install.sh | sh" />
-                            <span>or</span>
-                            <CopyableCommand command="brew install meigma/tap/blobber" />
-                        </div>
+                        <CopyableCommand command="curl -fsSL https://blobber.meigma.dev/install.sh | sh" />
                     </div>
                 </div>
                 <div className="hero-visual">
-                    <div className="hero-card">
-                        <div className="hero-card__title">Registry view</div>
-                        <ul className="hero-tree">
-                            <li>
-                                <span className="hero-tree__dot" />
-                                ghcr.io/myorg/config:v1
-                            </li>
-                            <li className="hero-tree__indent">app.yaml</li>
-                            <li className="hero-tree__indent">routes.json</li>
-                            <li className="hero-tree__indent">secrets/</li>
-                        </ul>
-                        <div className="hero-output">Indexed via eStargz in milliseconds</div>
-                    </div>
-                    <div className="hero-card">
-                        <div className="hero-card__title">Stream a single file</div>
-                        <div className="hero-command">
-                            $ blobber cat ghcr.io/myorg/config:v1 app.yaml
-                        </div>
-                        <div className="hero-output">app.yaml (3.2 KB) streamed on demand</div>
+                    <div className="hero-demo">
+                        <img
+                            src="/img/demo.gif"
+                            alt="Blobber CLI demo showing push, list, cat, and pull commands"
+                            className="hero-demo__gif"
+                        />
                     </div>
                 </div>
             </div>
