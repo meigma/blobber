@@ -16,12 +16,12 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set image name (lowercase for GHCR)
         run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}/profiling" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
