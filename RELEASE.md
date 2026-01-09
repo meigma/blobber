@@ -55,9 +55,9 @@ Each release includes:
 |----------|-------------|
 | `blobber_<version>_<os>_<arch>.tar.gz` | Binary archive |
 | `checksums.txt` | SHA256 checksums |
-| `checksums.txt.sig` | Cosign signature |
-| `checksums.txt.pem` | Cosign certificate |
+| `checksums.txt.bundle` | Cosign signature bundle |
 | `*.sbom.spdx.json` | Software Bill of Materials |
+| `*.sbom.spdx.json.bundle` | SBOM signature bundle |
 
 ## Verifying Releases
 
@@ -65,8 +65,7 @@ Verify checksum signature:
 
 ```bash
 cosign verify-blob \
-  --certificate checksums.txt.pem \
-  --signature checksums.txt.sig \
+  --bundle checksums.txt.bundle \
   --certificate-identity-regexp="https://github.com/meigma/blobber" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
   checksums.txt
