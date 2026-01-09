@@ -98,7 +98,7 @@ This digest uniquely identifies your configuration bundle. Save it for reproduci
 Let's verify what we pushed without downloading anything:
 
 ```bash
-blobber list ghcr.io/YOUR_REGISTRY/webapp-config:v1
+blobber ls ghcr.io/YOUR_REGISTRY/webapp-config:v1
 ```
 
 Output:
@@ -116,7 +116,7 @@ Notice how nested files show their full path.
 For more details, add the `-l` flag:
 
 ```bash
-blobber list -l ghcr.io/YOUR_REGISTRY/webapp-config:v1
+blobber ls -l ghcr.io/YOUR_REGISTRY/webapp-config:v1
 ```
 
 Output:
@@ -275,8 +275,8 @@ If the signature is invalid or missing, the pull fails before downloading any co
 ## What We Learned
 
 - `blobber push <dir> <ref>` uploads a directory to a registry
-- `blobber list <ref>` shows files without downloading
-- `blobber list -l <ref>` shows sizes and permissions
+- `blobber ls <ref>` shows files without downloading
+- `blobber ls -l <ref>` shows sizes and permissions
 - `blobber cat <ref> <path>` streams a single file
 - `blobber pull <ref> <dir>` downloads everything
 - `blobber pull --overwrite` replaces existing files

@@ -70,7 +70,7 @@ The trusted root JSON contains the CA certificates and transparency log keys for
 Verification also works with `OpenImage` for listing and streaming:
 
 ```bash
-blobber list --verify \
+blobber ls --verify \
   --verify-issuer https://accounts.google.com \
   --verify-subject developer@company.com \
   ghcr.io/myorg/config:v1

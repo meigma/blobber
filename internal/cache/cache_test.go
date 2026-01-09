@@ -109,6 +109,10 @@ func (m *mockRegistry) FetchManifest(_ context.Context, _ string) ([]byte, strin
 	return nil, "", nil
 }
 
+func (m *mockRegistry) ListTags(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
 // createTestBlob creates test data with a known digest.
 func createTestBlob(content string) (data []byte, digest string) {
 	data = []byte(content)

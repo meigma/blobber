@@ -178,7 +178,7 @@ func detectAndDecompress(r io.Reader) (io.ReadCloser, error) {
 func extractDir(destDir string, header *tar.Header, state *extractState) error {
 	fullPath := filepath.Join(destDir, header.Name)
 
-	if err := ensureParentDir(parentDir(fullPath), state); err != nil {
+	if err := ensureParentDir(parentDir(fullPath), destDir, state); err != nil {
 		return err
 	}
 
@@ -193,7 +193,7 @@ func extractFile(ctx context.Context, destDir string, header *tar.Header, tr *ta
 	fullPath := filepath.Join(destDir, header.Name)
 
 	parent := parentDir(fullPath)
-	if err := ensureParentDir(parent, state); err != nil {
+	if err := ensureParentDir(parent, destDir, state); err != nil {
 		return err
 	}
 
@@ -220,7 +220,7 @@ func extractSymlink(destDir string, header *tar.Header, state *extractState) err
 	fullPath := filepath.Join(destDir, header.Name)
 
 	parent := parentDir(fullPath)
-	if err := ensureParentDir(parent, state); err != nil {
+	if err := ensureParentDir(parent, destDir, state); err != nil {
 		return err
 	}
 
@@ -258,11 +258,28 @@ func validateNotSymlink(path string) error {
 	return nil
 }
 
-func ensureParentDir(parent string, state *extractState) error {
-	if err := validateNotSymlinkCached(parent, state); err != nil {
-		return err
+func ensureParentDir(parent, destDir string, state *extractState) error {
+	// Only validate symlinks for paths within the destination directory.
+	// Pre-existing symlinks in the filesystem path leading to destDir (e.g., /tmp -> private/tmp)
+	// are safe and should not be rejected.
+	if isWithinOrEqual(parent, destDir) {
+		if err := validateNotSymlinkCached(parent, state); err != nil {
+			return err
+		}
 	}
 	return mkdirAllCached(parent, 0o750, state)
+}
+
+// isWithinOrEqual reports whether path is lexically within or equal to dir.
+func isWithinOrEqual(path, dir string) bool {
+	if path == dir {
+		return true
+	}
+	// Ensure dir ends with separator for proper prefix matching
+	if !strings.HasSuffix(dir, string(filepath.Separator)) {
+		dir += string(filepath.Separator)
+	}
+	return strings.HasPrefix(path, dir)
 }
 
 func validateNotSymlinkCached(path string, state *extractState) error {

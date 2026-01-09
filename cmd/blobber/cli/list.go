@@ -14,18 +14,20 @@ import (
 var listLong bool
 
 var listCmd = &cobra.Command{
-	Use:     "list <reference>",
-	Aliases: []string{"ls"},
+	Use:     "ls <reference>",
+	Aliases: []string{"list"},
 	Short:   "List files in an OCI image",
-	Long: `List displays the files in an OCI registry image without downloading it.
+	GroupID: "core",
+	Long: `Ls displays the files in an OCI registry image without downloading it.
 
 This leverages eStargz format to read only the table of contents.
 
 Examples:
-  blobber list ghcr.io/org/config:v1
+  blobber ls ghcr.io/org/config:v1
   blobber ls ghcr.io/org/config:v1 --long`,
-	Args: cobra.ExactArgs(1),
-	RunE: runList,
+	Args:              cobra.ExactArgs(1),
+	RunE:              runList,
+	ValidArgsFunction: completeImageRef,
 }
 
 func init() {

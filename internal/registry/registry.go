@@ -711,3 +711,33 @@ func (r *orasRegistry) FetchManifest(ctx context.Context, ref string) ([]byte, s
 
 	return manifestData, desc.Digest.String(), nil
 }
+
+// ListTags returns all tags for a repository.
+func (r *orasRegistry) ListTags(ctx context.Context, repository string) ([]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	// Parse repository as a reference with a dummy tag to extract registry/repo parts.
+	parsedRef, err := registry.ParseReference(repository + ":latest")
+	if err != nil {
+		return nil, core.ErrInvalidRef
+	}
+
+	repo, err := r.newRepository(parsedRef)
+	if err != nil {
+		return nil, fmt.Errorf("create repository: %w", err)
+	}
+
+	// Use ORAS Tags() which returns a function that iterates over tags.
+	var tags []string
+	err = repo.Tags(ctx, "", func(tagsPage []string) error {
+		tags = append(tags, tagsPage...)
+		return nil
+	})
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	return tags, nil
+}

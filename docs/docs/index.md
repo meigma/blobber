@@ -23,7 +23,7 @@ Blobber is a Go module and CLI for pushing and pulling arbitrary files to and fr
 blobber push ./config ghcr.io/myorg/config:v1
 
 # List files without downloading
-blobber list ghcr.io/myorg/config:v1
+blobber ls ghcr.io/myorg/config:v1
 
 # Stream a single file to stdout
 blobber cat ghcr.io/myorg/config:v1 app.yaml

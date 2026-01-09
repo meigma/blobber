@@ -25,8 +25,9 @@ var (
 )
 
 var cacheCmd = &cobra.Command{
-	Use:   "cache",
-	Short: "Manage the blob cache",
+	Use:     "cache",
+	Short:   "Manage the blob cache",
+	GroupID: "management",
 	Long: `Manage the local blob cache.
 
 The cache stores downloaded blobs locally for faster subsequent access.

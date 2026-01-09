@@ -2,15 +2,15 @@
 sidebar_position: 3
 ---
 
-# blobber list
+# blobber ls
 
 List files in an OCI image without downloading.
 
 ## Synopsis
 
 ```bash
-blobber list <reference> [flags]
 blobber ls <reference> [flags]
+blobber list <reference> [flags]  # alias for backwards compatibility
 ```
 
 ## Description
@@ -65,19 +65,19 @@ config/server.yaml    96      0644
 List files:
 
 ```bash
-blobber list ghcr.io/myorg/config:v1
+blobber ls ghcr.io/myorg/config:v1
 ```
 
 List with details:
 
 ```bash
-blobber list -l ghcr.io/myorg/config:v1
+blobber ls -l ghcr.io/myorg/config:v1
 ```
 
-Using the `ls` alias:
+Using the `list` alias (backwards compatibility):
 
 ```bash
-blobber ls ghcr.io/myorg/config:v1
+blobber list ghcr.io/myorg/config:v1
 ```
 
 ## Notes
@@ -88,5 +88,6 @@ blobber ls ghcr.io/myorg/config:v1
 
 ## See Also
 
-- [blobber cat](/docs/reference/cli/cat) - Stream a single file
+- [blobber cat](/docs/reference/cli/cat) - Stream a single file to stdout
+- [blobber cp](/docs/reference/cli/cp) - Copy a single file to local path
 - [About eStargz](/docs/explanation/about-estargz) - Why listing is efficient

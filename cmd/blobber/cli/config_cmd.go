@@ -13,8 +13,9 @@ import (
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Manage blobber configuration",
+	Use:     "config",
+	Short:   "Manage blobber configuration",
+	GroupID: "management",
 	Long: `View and modify blobber configuration.
 
 Without arguments, displays the current effective configuration.

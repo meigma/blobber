@@ -44,7 +44,7 @@ The SHA256 digest confirms your files are stored.
 See what's in the image without downloading:
 
 ```bash
-blobber list ghcr.io/YOUR_USERNAME/config:v1
+blobber ls ghcr.io/YOUR_USERNAME/config:v1
 ```
 
 Output:

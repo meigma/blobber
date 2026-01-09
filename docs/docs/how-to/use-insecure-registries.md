@@ -36,7 +36,7 @@ blobber pull localhost:5000/myimage:v1 ./output --insecure
 ## List Files from Insecure Registry
 
 ```bash
-blobber list localhost:5000/myimage:v1 --insecure
+blobber ls localhost:5000/myimage:v1 --insecure
 ```
 
 ## Stream Files from Insecure Registry
@@ -58,7 +58,7 @@ Test with blobber:
 ```bash
 mkdir test && echo "hello" > test/hello.txt
 blobber push ./test localhost:5000/test:v1 --insecure
-blobber list localhost:5000/test:v1 --insecure
+blobber ls localhost:5000/test:v1 --insecure
 ```
 
 ## Troubleshooting
