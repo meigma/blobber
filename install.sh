@@ -201,8 +201,7 @@ verify_checksum() {
 # Verify signature using cosign
 verify_signature() {
     checksums_file="$1"
-    signature_file="$2"
-    certificate_file="$3"
+    bundle_file="$2"
 
     if [ "${BLOBBER_NO_VERIFY:-0}" = "1" ]; then
         log_warn "Signature verification disabled via BLOBBER_NO_VERIFY"
@@ -218,8 +217,7 @@ verify_signature() {
     log_info "Verifying signature..."
 
     if cosign verify-blob \
-        --certificate "$certificate_file" \
-        --signature "$signature_file" \
+        --bundle "$bundle_file" \
         --certificate-identity-regexp="$COSIGN_CERT_IDENTITY_REGEXP" \
         --certificate-oidc-issuer="$COSIGN_OIDC_ISSUER" \
         "$checksums_file" >/dev/null 2>&1; then
@@ -321,24 +319,21 @@ main() {
     archive_name="${BINARY_NAME}_${version}_${os}_${arch}.${archive_ext}"
     archive_url="${base_url}/${archive_name}"
     checksums_url="${base_url}/checksums.txt"
-    signature_url="${base_url}/checksums.txt.sig"
-    certificate_url="${base_url}/checksums.txt.pem"
+    bundle_url="${base_url}/checksums.txt.bundle"
 
     # Download files
     archive_path="${tmpdir}/${archive_name}"
     checksums_path="${tmpdir}/checksums.txt"
-    signature_path="${tmpdir}/checksums.txt.sig"
-    certificate_path="${tmpdir}/checksums.txt.pem"
+    bundle_path="${tmpdir}/checksums.txt.bundle"
 
     download "$archive_url" "$archive_path"
     download "$checksums_url" "$checksums_path"
-    download "$signature_url" "$signature_path"
-    download "$certificate_url" "$certificate_path"
+    download "$bundle_url" "$bundle_path"
 
     echo ""
 
     # Verify signature (of checksums file)
-    if ! verify_signature "$checksums_path" "$signature_path" "$certificate_path"; then
+    if ! verify_signature "$checksums_path" "$bundle_path"; then
         exit 1
     fi
 

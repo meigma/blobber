@@ -59,30 +59,26 @@ sboms:
 signs:
   - id: checksum
     cmd: flock
-    signature: "${artifact}.sig"
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.bundle"
     args:
       - "--exclusive"
       - "/tmp/cosign.lock"
       - "cosign"
       - "sign-blob"
-      - "--output-signature=${signature}"
-      - "--output-certificate=${certificate}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes"
     artifacts: checksum
 
   - id: sbom
     cmd: flock
-    signature: "${artifact}.sig"
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.bundle"
     args:
       - "--exclusive"
       - "/tmp/cosign.lock"
       - "cosign"
       - "sign-blob"
-      - "--output-signature=${signature}"
-      - "--output-certificate=${certificate}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - "--yes"
     artifacts: sbom
@@ -133,8 +129,7 @@ release:
     Verify the checksums signature:
     ```bash
     cosign verify-blob \
-      --certificate checksums.txt.pem \
-      --signature checksums.txt.sig \
+      --bundle checksums.txt.bundle \
       --certificate-identity-regexp="https://github.com/meigma/blobber" \
       --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
       checksums.txt
@@ -143,8 +138,7 @@ release:
     Verify an SBOM signature:
     ```bash
     cosign verify-blob \
-      --certificate blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.pem \
-      --signature blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.sig \
+      --bundle blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json.bundle \
       --certificate-identity-regexp="https://github.com/meigma/blobber" \
       --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
       blobber_{{ .Version }}_linux_amd64.tar.gz.sbom.spdx.json
