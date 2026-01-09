@@ -16,7 +16,7 @@ By the end, you'll know how to:
 
 ## Prerequisites
 
-- [blobber installed](/docs/getting-started/cli/installation)
+- [blobber installed](../getting-started/cli/installation.md)
 - Access to an OCI registry
 - Docker credentials configured
 
@@ -263,7 +263,7 @@ blobber cat ghcr.io/YOUR_REGISTRY/webapp-config:v2 app.yaml
 
 ## Next Steps
 
-- [How to Authenticate](/docs/how-to/authenticate) - Configure credentials for private registries
-- [How to Use Compression](/docs/how-to/use-compression) - Choose between gzip and zstd
-- [CLI Reference](/docs/reference/cli/push) - Complete command documentation
-- [About eStargz](/docs/explanation/about-estargz) - Why selective retrieval is efficient
+- [How to Authenticate](../how-to/authenticate.md) - Configure credentials for private registries
+- [How to Use Compression](../how-to/use-compression.md) - Choose between gzip and zstd
+- [CLI Reference](../reference/cli/push.md) - Complete command documentation
+- [About eStargz](../explanation/about-estargz.md) - Why selective retrieval is efficient

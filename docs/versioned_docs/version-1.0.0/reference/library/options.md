@@ -284,5 +284,5 @@ err := client.Pull(ctx, ref, destDir,
 
 ## See Also
 
-- [Client](/docs/reference/library/client) - Client methods
-- [Errors](/docs/reference/library/errors) - Error handling
+- [Client](./client.md) - Client methods
+- [Errors](./errors.md) - Error handling

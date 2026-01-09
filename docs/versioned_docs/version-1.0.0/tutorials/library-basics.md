@@ -413,6 +413,6 @@ func run() error {
 
 ## Next Steps
 
-- [Library Reference: Client](/docs/reference/library/client) - All client methods and options
-- [Library Reference: Options](/docs/reference/library/options) - Configure authentication, caching, and more
-- [About eStargz](/docs/explanation/about-estargz) - Why selective retrieval is efficient
+- [Library Reference: Client](../reference/library/client.md) - All client methods and options
+- [Library Reference: Options](../reference/library/options.md) - Configure authentication, caching, and more
+- [About eStargz](../explanation/about-estargz.md) - Why selective retrieval is efficient

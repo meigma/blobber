@@ -135,5 +135,5 @@ Blobber adds first-class eStargz support on top, enabling efficient selective re
 
 ## See Also
 
-- [About eStargz](/docs/explanation/about-estargz) - Why selective retrieval is efficient
-- [Architecture](/docs/explanation/architecture) - How blobber uses OCI registries
+- [About eStargz](./about-estargz.md) - Why selective retrieval is efficient
+- [Architecture](./architecture.md) - How blobber uses OCI registries

@@ -90,6 +90,6 @@ For a 1GB image, listing might download only a few KB.
 
 ## See Also
 
-- [CLI Reference: ls](/docs/reference/cli/list)
-- [How to Extract Single Files](/docs/how-to/extract-single-file)
-- [About eStargz](/docs/explanation/about-estargz)
+- [CLI Reference: ls](../reference/cli/list.md)
+- [How to Extract Single Files](./extract-single-file.md)
+- [About eStargz](../explanation/about-estargz.md)

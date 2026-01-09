@@ -64,10 +64,10 @@ Client created: *blobber.Client
 
 Blobber uses your existing Docker credentials from `~/.docker/config.json`. If you can `docker push` to a registry from your machine, blobber can too.
 
-For programmatic credential management, see [WithCredentials](/docs/reference/library/options#withcredentials).
+For programmatic credential management, see [WithCredentials](../../reference/library/options.md#withcredentials).
 
 ## Next Steps
 
-- [Quickstart](/docs/getting-started/library/quickstart) - Basic push/pull in your code
-- [Library Tutorial](/docs/tutorials/library-basics) - Comprehensive walkthrough
-- [Library Reference](/docs/reference/library/client) - Full API documentation
+- [Quickstart](./quickstart.md) - Basic push/pull in your code
+- [Library Tutorial](../../tutorials/library-basics.md) - Comprehensive walkthrough
+- [Library Reference](../../reference/library/client.md) - Full API documentation

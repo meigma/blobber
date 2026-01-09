@@ -156,5 +156,5 @@ blobber cache info   # Shows /custom/cache/blobber
 
 ## See Also
 
-- [CLI Reference: config](/docs/reference/cli/config)
-- [How to Manage Cache](/docs/how-to/manage-cache)
+- [CLI Reference: config](../reference/cli/config.md)
+- [How to Manage Cache](./manage-cache.md)

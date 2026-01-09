@@ -168,11 +168,11 @@ verify:
 | `BLOBBER_VERIFY_UNSAFE` | Accept any valid signature |
 | `BLOBBER_VERIFY_TRUSTED_ROOT` | Path to custom trusted root |
 
-See [How to Configure Blobber](/docs/how-to/configure-blobber) for details.
+See [How to Configure Blobber](../../how-to/configure-blobber.md) for details.
 
 ## See Also
 
-- [blobber push](/docs/reference/cli/push) - Upload to registry
-- [blobber cat](/docs/reference/cli/cat) - Stream single files
-- [How to Verify Signatures](/docs/how-to/verify-signatures) - Verification guide
-- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing
+- [blobber push](./push.md) - Upload to registry
+- [blobber cat](./cat.md) - Stream single files
+- [How to Verify Signatures](../../how-to/verify-signatures.md) - Verification guide
+- [About Signing](../../explanation/about-signing.md) - Understanding Sigstore signing

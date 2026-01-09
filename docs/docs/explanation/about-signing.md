@@ -243,8 +243,8 @@ The sigstore implementation lives in a separate Go module to avoid pulling heavy
 
 ## See Also
 
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Step-by-step signing guide
-- [How to Verify Signatures](/docs/how-to/verify-signatures) - Verification guide
-- [CLI Reference: push](/docs/reference/cli/push) - Signing flags
-- [CLI Reference: pull](/docs/reference/cli/pull) - Verification flags
+- [How to Sign Artifacts](../how-to/sign-artifacts.md) - Step-by-step signing guide
+- [How to Verify Signatures](../how-to/verify-signatures.md) - Verification guide
+- [CLI Reference: push](../reference/cli/push.md) - Signing flags
+- [CLI Reference: pull](../reference/cli/pull.md) - Verification flags
 - [Sigstore Documentation](https://docs.sigstore.dev) - Official Sigstore docs

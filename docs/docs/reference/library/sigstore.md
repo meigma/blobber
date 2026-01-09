@@ -466,7 +466,7 @@ client, _ := blobber.NewClient(blobber.WithSigner(signer))
 
 ## See Also
 
-- [Options Reference](/docs/reference/library/options) - Client options including `WithSigner` and `WithVerifier`
-- [Errors Reference](/docs/reference/library/errors) - Signing/verification errors
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Practical signing guide
-- [About Signing](/docs/explanation/about-signing) - Conceptual overview
+- [Options Reference](./options.md) - Client options including `WithSigner` and `WithVerifier`
+- [Errors Reference](./errors.md) - Signing/verification errors
+- [How to Sign Artifacts](../../how-to/sign-artifacts.md) - Practical signing guide
+- [About Signing](../../explanation/about-signing.md) - Conceptual overview

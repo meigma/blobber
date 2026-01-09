@@ -115,5 +115,5 @@ docker manifest inspect ghcr.io/your-org/your-repo:tag
 
 ## See Also
 
-- [CLI Reference: push](/docs/reference/cli/push)
-- [CLI Reference: pull](/docs/reference/cli/pull)
+- [CLI Reference: push](../reference/cli/push.md)
+- [CLI Reference: pull](../reference/cli/pull.md)

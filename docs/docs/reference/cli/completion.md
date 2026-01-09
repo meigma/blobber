@@ -83,4 +83,4 @@ blobber completion bash --no-descriptions
 
 ## See Also
 
-- [How to Enable Shell Completion](/docs/how-to/enable-shell-completion) - Setup guide
+- [How to Enable Shell Completion](../../how-to/enable-shell-completion.md) - Setup guide
