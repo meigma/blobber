@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.0](https://github.com/meigma/blobber/compare/v1.0.0...v1.1.0) (2026-01-09)
+
+
+### Features
+
+* add shell auto-completion for image file paths ([#17](https://github.com/meigma/blobber/issues/17)) ([227d232](https://github.com/meigma/blobber/commit/227d232e545a2fb70c79d71114df4bc1f9221c7b))
+* add Sigstore signing and verification support ([#16](https://github.com/meigma/blobber/issues/16)) ([1b3b50a](https://github.com/meigma/blobber/commit/1b3b50a49ba075348cc5524860bbd34cba0bb22e))
+* **cli:** add cp command, rename list to ls, improve auto-completion ([#18](https://github.com/meigma/blobber/issues/18)) ([db3142c](https://github.com/meigma/blobber/commit/db3142caaadbaf243be34bbb4279def47aa31e22))
+* **cli:** improve ls output and add demo to landing page ([#21](https://github.com/meigma/blobber/issues/21)) ([e4de699](https://github.com/meigma/blobber/commit/e4de699b8d3ebae61e2fe447ef3c154012dec4ea))
+
+
+### Bug Fixes
+
+* **docs:** convert absolute paths to relative paths ([#20](https://github.com/meigma/blobber/issues/20)) ([66c613a](https://github.com/meigma/blobber/commit/66c613a48dc10ca584a8b21d7be97192d83e5280))
+* **install:** remove unnecessary -- separator from chmod ([e09ac69](https://github.com/meigma/blobber/commit/e09ac69075ffe3d06808de2b19593cebf091fece))
+
 ## 1.0.0 (2026-01-08)
 
 
