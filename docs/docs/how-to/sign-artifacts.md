@@ -223,6 +223,6 @@ In headless environments (CI, containers), Sigstore uses device flow or environm
 
 ## See Also
 
-- [How to Verify Signatures](/docs/how-to/verify-signatures) - Verify signed artifacts
-- [About Signing](/docs/explanation/about-signing) - Understanding signing concepts
-- [CLI Reference: push](/docs/reference/cli/push) - All push flags
+- [How to Verify Signatures](./verify-signatures.md) - Verify signed artifacts
+- [About Signing](../explanation/about-signing.md) - Understanding signing concepts
+- [CLI Reference: push](../reference/cli/push.md) - All push flags

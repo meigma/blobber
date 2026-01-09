@@ -371,8 +371,8 @@ err := client.Pull(ctx, ref, destDir,
 
 ## See Also
 
-- [Client](/docs/reference/library/client) - Client methods
-- [Errors](/docs/reference/library/errors) - Error handling
-- [Sigstore Package](/docs/reference/library/sigstore) - Signer and Verifier implementations
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Signing guide
-- [How to Verify Signatures](/docs/how-to/verify-signatures) - Verification guide
+- [Client](./client.md) - Client methods
+- [Errors](./errors.md) - Error handling
+- [Sigstore Package](./sigstore.md) - Signer and Verifier implementations
+- [How to Sign Artifacts](../../how-to/sign-artifacts.md) - Signing guide
+- [How to Verify Signatures](../../how-to/verify-signatures.md) - Verification guide

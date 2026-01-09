@@ -482,9 +482,9 @@ if errors.Is(err, blobber.ErrSignatureInvalid) {
 
 ## Next Steps
 
-- [Library Reference: Client](/docs/reference/library/client) - All client methods and options
-- [Library Reference: Options](/docs/reference/library/options) - Configure authentication, caching, and more
-- [Library Reference: Sigstore](/docs/reference/library/sigstore) - Signing and verification options
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Detailed signing guide
-- [About eStargz](/docs/explanation/about-estargz) - Why selective retrieval is efficient
-- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing
+- [Library Reference: Client](../reference/library/client.md) - All client methods and options
+- [Library Reference: Options](../reference/library/options.md) - Configure authentication, caching, and more
+- [Library Reference: Sigstore](../reference/library/sigstore.md) - Signing and verification options
+- [How to Sign Artifacts](../how-to/sign-artifacts.md) - Detailed signing guide
+- [About eStargz](../explanation/about-estargz.md) - Why selective retrieval is efficient
+- [About Signing](../explanation/about-signing.md) - Understanding Sigstore signing

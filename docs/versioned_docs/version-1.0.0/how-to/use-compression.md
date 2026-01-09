@@ -72,5 +72,5 @@ Both algorithms produce valid eStargz images that work with `list`, `cat`, and `
 
 ## See Also
 
-- [CLI Reference: push](/docs/reference/cli/push)
-- [About eStargz](/docs/explanation/about-estargz) - How compression works internally
+- [CLI Reference: push](../reference/cli/push.md)
+- [About eStargz](../explanation/about-estargz.md) - How compression works internally

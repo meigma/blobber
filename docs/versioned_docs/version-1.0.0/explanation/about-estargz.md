@@ -176,5 +176,5 @@ When blobber pushes:
 
 ## See Also
 
-- [Why OCI Registries](/docs/explanation/why-oci-registries) - Registry benefits
-- [Architecture](/docs/explanation/architecture) - How blobber implements this
+- [Why OCI Registries](./why-oci-registries.md) - Registry benefits
+- [Architecture](./architecture.md) - How blobber implements this

@@ -286,5 +286,5 @@ func handleImage(ctx context.Context, client *blobber.Client, ref string) error 
 
 ## See Also
 
-- [Client](/docs/reference/library/client) - Methods that return these errors
-- [Options](/docs/reference/library/options) - Configuring limits
+- [Client](./client.md) - Methods that return these errors
+- [Options](./options.md) - Configuring limits

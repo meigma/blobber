@@ -249,7 +249,7 @@ blobber pull --verify --verify-issuer https://issuer2 --verify-subject signer2@e
 
 ## See Also
 
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Sign your artifacts
-- [About Signing](/docs/explanation/about-signing) - Understanding signing concepts
-- [CLI Reference: pull](/docs/reference/cli/pull) - All pull flags
-- [Errors Reference](/docs/reference/library/errors) - Error handling
+- [How to Sign Artifacts](./sign-artifacts.md) - Sign your artifacts
+- [About Signing](../explanation/about-signing.md) - Understanding signing concepts
+- [CLI Reference: pull](../reference/cli/pull.md) - All pull flags
+- [Errors Reference](../reference/library/errors.md) - Error handling

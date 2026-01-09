@@ -174,6 +174,6 @@ Blobber uses your existing Docker credentials from `~/.docker/config.json`. If y
 
 ## Next Steps
 
-- [Quickstart](/docs/getting-started/cli/quickstart) - Push and pull your first files
-- [Enable Shell Completion](/docs/how-to/enable-shell-completion) - Tab completion for commands, flags, and image tags
-- [CLI Tutorial](/docs/tutorials/cli-basics) - Learn all CLI features step-by-step
+- [Quickstart](./quickstart.md) - Push and pull your first files
+- [Enable Shell Completion](../../how-to/enable-shell-completion.md) - Tab completion for commands, flags, and image tags
+- [CLI Tutorial](../../tutorials/cli-basics.md) - Learn all CLI features step-by-step

@@ -225,5 +225,5 @@ Structure:
 
 ## See Also
 
-- [How to Manage Cache](/docs/how-to/manage-cache) - Cache management strategies
-- [blobber config](/docs/reference/cli/config) - Configuration management
+- [How to Manage Cache](../../how-to/manage-cache.md) - Cache management strategies
+- [blobber config](./config.md) - Configuration management

@@ -62,6 +62,10 @@ const config: Config = {
           to: "/docs/intro",
         },
         {
+          type: "docsVersionDropdown",
+          position: "left",
+        },
+        {
           href: "https://github.com/meigma/blobber",
           label: "GitHub",
           position: "right",

@@ -118,7 +118,7 @@ sign:
 | `BLOBBER_SIGN_FULCIO` | Fulcio CA URL |
 | `BLOBBER_SIGN_REKOR` | Rekor transparency log URL |
 
-See [How to Configure Blobber](/docs/how-to/configure-blobber) for details.
+See [How to Configure Blobber](../../how-to/configure-blobber.md) for details.
 
 ## Notes
 
@@ -130,7 +130,7 @@ See [How to Configure Blobber](/docs/how-to/configure-blobber) for details.
 
 ## See Also
 
-- [blobber pull](/docs/reference/cli/pull) - Download from registry
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Signing guide
-- [How to Use Compression](/docs/how-to/use-compression) - Choosing compression algorithms
-- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing
+- [blobber pull](./pull.md) - Download from registry
+- [How to Sign Artifacts](../../how-to/sign-artifacts.md) - Signing guide
+- [How to Use Compression](../../how-to/use-compression.md) - Choosing compression algorithms
+- [About Signing](../../explanation/about-signing.md) - Understanding Sigstore signing

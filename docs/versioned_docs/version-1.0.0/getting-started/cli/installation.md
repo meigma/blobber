@@ -174,5 +174,5 @@ Blobber uses your existing Docker credentials from `~/.docker/config.json`. If y
 
 ## Next Steps
 
-- [Quickstart](/docs/getting-started/cli/quickstart) - Push and pull your first files
-- [CLI Tutorial](/docs/tutorials/cli-basics) - Learn all CLI features step-by-step
+- [Quickstart](./quickstart.md) - Push and pull your first files
+- [CLI Tutorial](../../tutorials/cli-basics.md) - Learn all CLI features step-by-step

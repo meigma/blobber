@@ -75,5 +75,5 @@ blobber push ./files localhost:5000/test:v1 --insecure
 
 ## See Also
 
-- [blobber pull](/docs/reference/cli/pull) - Download from registry
-- [How to Use Compression](/docs/how-to/use-compression) - Choosing compression algorithms
+- [blobber pull](./pull.md) - Download from registry
+- [How to Use Compression](../../how-to/use-compression.md) - Choosing compression algorithms

@@ -218,7 +218,7 @@ export BLOBBER_VERIFY_TRUSTED_ROOT=/path/to/trusted-root.json
 
 ## See Also
 
-- [CLI Reference: config](/docs/reference/cli/config)
-- [How to Manage Cache](/docs/how-to/manage-cache)
-- [How to Sign Artifacts](/docs/how-to/sign-artifacts)
-- [How to Verify Signatures](/docs/how-to/verify-signatures)
+- [CLI Reference: config](../reference/cli/config.md)
+- [How to Manage Cache](./manage-cache.md)
+- [How to Sign Artifacts](./sign-artifacts.md)
+- [How to Verify Signatures](./verify-signatures.md)

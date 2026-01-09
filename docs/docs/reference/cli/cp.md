@@ -71,7 +71,7 @@ blobber cp ghcr.io/myorg/config:v1 app.yaml ./output/configs/app.yaml
 
 ## See Also
 
-- [blobber cat](/docs/reference/cli/cat) - Stream a file to stdout
-- [blobber ls](/docs/reference/cli/list) - List available files
-- [blobber pull](/docs/reference/cli/pull) - Download all files
-- [How to Extract Single Files](/docs/how-to/extract-single-file) - Practical examples
+- [blobber cat](./cat.md) - Stream a file to stdout
+- [blobber ls](./list.md) - List available files
+- [blobber pull](./pull.md) - Download all files
+- [How to Extract Single Files](../../how-to/extract-single-file.md) - Practical examples

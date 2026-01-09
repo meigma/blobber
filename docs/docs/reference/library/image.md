@@ -185,5 +185,5 @@ The Image type is safe for concurrent use. Multiple goroutines can call `List()`
 
 ## See Also
 
-- [Client](/docs/reference/library/client) - Creating clients and opening images
-- [Tutorial: Library Basics](/docs/tutorials/library-basics) - Step-by-step usage guide
+- [Client](./client.md) - Creating clients and opening images
+- [Tutorial: Library Basics](../../tutorials/library-basics.md) - Step-by-step usage guide

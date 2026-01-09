@@ -88,6 +88,6 @@ blobber list ghcr.io/myorg/config:v1
 
 ## See Also
 
-- [blobber cat](/docs/reference/cli/cat) - Stream a single file to stdout
-- [blobber cp](/docs/reference/cli/cp) - Copy a single file to local path
-- [About eStargz](/docs/explanation/about-estargz) - Why listing is efficient
+- [blobber cat](./cat.md) - Stream a single file to stdout
+- [blobber cp](./cp.md) - Copy a single file to local path
+- [About eStargz](../../explanation/about-estargz.md) - Why listing is efficient

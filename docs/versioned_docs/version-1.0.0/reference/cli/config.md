@@ -188,5 +188,5 @@ Blobber follows the [XDG Base Directory Specification](https://specifications.fr
 
 ## See Also
 
-- [How to Configure Blobber](/docs/how-to/configure-blobber) - Configuration guide
-- [blobber cache](/docs/reference/cli/cache) - Cache management
+- [How to Configure Blobber](../../how-to/configure-blobber.md) - Configuration guide
+- [blobber cache](./cache.md) - Cache management

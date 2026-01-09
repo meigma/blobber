@@ -142,9 +142,9 @@ If your registry requires authentication, ensure you're logged in:
 docker login ghcr.io
 ```
 
-See [How to Authenticate](/docs/how-to/authenticate) for details.
+See [How to Authenticate](./authenticate.md) for details.
 
 ## See Also
 
-- [blobber completion](/docs/reference/cli/completion) - Command reference
-- [How to Authenticate](/docs/how-to/authenticate) - Registry authentication
+- [blobber completion](../reference/cli/completion.md) - Command reference
+- [How to Authenticate](./authenticate.md) - Registry authentication
