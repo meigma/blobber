@@ -39,6 +39,7 @@ type Client struct {
 	backgroundPrefetch bool
 	lazyLoading        bool
 	cacheTTL           time.Duration
+	cacheVerifyOnRead  bool
 
 	// signing configuration (opt-in)
 	signer   Signer
@@ -58,6 +59,10 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		if err := opt(c); err != nil {
 			return nil, err
 		}
+	}
+
+	if c.cacheVerifyOnRead && c.lazyLoading {
+		return nil, errors.New("cache verify on read is incompatible with lazy loading")
 	}
 
 	// Set up credential store if not provided
@@ -95,6 +100,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create cache: %w", err)
 		}
+		cacheInstance.SetVerifyOnRead(c.cacheVerifyOnRead)
 		c.cache = cacheInstance
 	}
 

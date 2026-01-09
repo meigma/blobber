@@ -608,7 +608,7 @@ func TestCache_LookupByRef_BlobFileMissing(t *testing.T) {
 
 		// Truncate the blob file
 		blobPath := filepath.Join(dir, "blobs", "sha256", extractHash(digest))
-		err = os.WriteFile(blobPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(blobPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// LookupByRef still succeeds (only checks ref metadata)

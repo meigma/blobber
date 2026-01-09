@@ -295,7 +295,7 @@ func TestCache_OpenStream(t *testing.T) {
 
 		// Corrupt the cached blob by truncating it
 		blobPath := filepath.Join(dir, "blobs", "sha256", extractHash(digest))
-		err = os.WriteFile(blobPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(blobPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// OpenStream should detect mismatch, evict, and re-download
@@ -370,7 +370,7 @@ func TestCache_OpenStreamThrough(t *testing.T) {
 
 		// Corrupt the cached blob by truncating it
 		blobPath := filepath.Join(dir, "blobs", "sha256", extractHash(digest))
-		err = os.WriteFile(blobPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(blobPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// OpenStreamThrough should detect mismatch, evict, and re-download
@@ -407,7 +407,7 @@ func TestCache_OpenStreamThrough(t *testing.T) {
 		entryPath := filepath.Join(dir, "entries", "sha256", hashStr+".json")
 
 		// Write partial file with some data
-		err = os.WriteFile(partialPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(partialPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// Write entry with ranges that would cause issues if not cleared
@@ -667,11 +667,11 @@ func TestCache_ResumeDownload(t *testing.T) {
 		// Write first half of data to partial file
 		halfLen := len(data) / 2
 		//nolint:gosec // G306: Test file permissions are fine
-		err = os.WriteFile(partialPath, data[:halfLen], 0o640)
+		err = os.WriteFile(partialPath, data[:halfLen], 0o600)
 		require.NoError(t, err)
 
 		// Extend file to full size (simulating sparse file)
-		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o640)
+		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o600)
 		require.NoError(t, err)
 		err = f.Truncate(int64(len(data)))
 		require.NoError(t, err)
@@ -734,10 +734,10 @@ func TestCache_ResumeDownload(t *testing.T) {
 
 		halfLen := len(data) / 2
 		//nolint:gosec // G306: Test file permissions are fine
-		err = os.WriteFile(partialPath, data[:halfLen], 0o640)
+		err = os.WriteFile(partialPath, data[:halfLen], 0o600)
 		require.NoError(t, err)
 
-		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o640)
+		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o600)
 		require.NoError(t, err)
 		err = f.Truncate(int64(len(data)))
 		require.NoError(t, err)

@@ -49,6 +49,9 @@ type Entry struct {
 
 // loadEntry reads a cache entry from disk.
 func loadEntry(path string) (*Entry, error) {
+	if err := ensureCacheFile(path); err != nil {
+		return nil, err
+	}
 	//nolint:gosec // G304: path is derived from digest hash, not user input
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -81,7 +84,7 @@ func saveEntry(path string, entry *Entry) error {
 	// Write to temp file
 	tmpPath := path + ".tmp"
 	//nolint:gosec // G304: tmpPath is derived from digest hash, not user input
-	f, err := os.Create(tmpPath)
+	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}

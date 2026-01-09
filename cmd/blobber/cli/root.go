@@ -55,6 +55,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose debug logging")
 	rootCmd.PersistentFlags().Bool("no-cache", false, "Bypass cache for this request")
 	rootCmd.PersistentFlags().Duration("cache-ttl", 0, "TTL for cache validation (e.g., 5m, 1h)")
+	rootCmd.PersistentFlags().Bool("cache-verify", false, "Re-verify cached blobs on read (slower, defends against cache poisoning)")
 
 	// Signing flags
 	rootCmd.PersistentFlags().Bool("sign", false, "Sign artifacts using Sigstore")
@@ -80,6 +81,8 @@ func init() {
 	//nolint:errcheck
 	viper.BindPFlag("cache.ttl", rootCmd.PersistentFlags().Lookup("cache-ttl"))
 	//nolint:errcheck
+	viper.BindPFlag("cache.verify", rootCmd.PersistentFlags().Lookup("cache-verify"))
+	//nolint:errcheck
 	viper.BindPFlag("sign", rootCmd.PersistentFlags().Lookup("sign"))
 	//nolint:errcheck
 	viper.BindPFlag("sign-key", rootCmd.PersistentFlags().Lookup("sign-key"))
@@ -103,6 +106,7 @@ func init() {
 	// Set defaults
 	viper.SetDefault("cache.enabled", true)
 	viper.SetDefault("cache.dir", "") // Empty means use XDG default
+	viper.SetDefault("cache.verify", false)
 
 	rootCmd.Version = version
 }
@@ -159,6 +163,7 @@ func newClient() (*blobber.Client, error) {
 	noCache := viper.GetBool("no-cache")
 	cacheEnabled := viper.GetBool("cache.enabled")
 	cacheTTL := viper.GetDuration("cache.ttl")
+	cacheVerify := viper.GetBool("cache.verify")
 
 	// Mutual exclusion check
 	if noCache && cacheTTL > 0 {
@@ -179,6 +184,9 @@ func newClient() (*blobber.Client, error) {
 		// Apply TTL if configured
 		if cacheTTL > 0 {
 			opts = append(opts, blobber.WithCacheTTL(cacheTTL))
+		}
+		if cacheVerify {
+			opts = append(opts, blobber.WithCacheVerifyOnRead(true))
 		}
 	}
 

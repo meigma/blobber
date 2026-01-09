@@ -122,6 +122,28 @@ client, err := blobber.NewClient(
 
 ---
 
+### WithCacheVerifyOnRead
+
+```go
+func WithCacheVerifyOnRead(enabled bool) ClientOption
+```
+
+Re-hashes cached blobs on cache hits to detect tampering. Incompatible with `WithLazyLoading`.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | `bool` | `false` | Verify cached blobs on read |
+
+**Example:**
+
+```go
+client, err := blobber.NewClient(
+    blobber.WithCacheVerifyOnRead(true),
+)
+```
+
+---
+
 ### WithLazyLoading
 
 ```go

@@ -73,6 +73,7 @@ func runConfigInit(_ *cobra.Command, _ []string) error {
 	defaultConfig := map[string]any{
 		"cache": map[string]any{
 			"enabled": true,
+			"verify":  false,
 		},
 	}
 	data, err := yaml.Marshal(defaultConfig)

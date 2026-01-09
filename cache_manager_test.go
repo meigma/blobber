@@ -30,7 +30,7 @@ func createTestCacheEntry(t *testing.T, cacheDir, content string, age time.Durat
 
 	// Write blob file
 	blobPath := filepath.Join(blobsDir, hashStr)
-	require.NoError(t, os.WriteFile(blobPath, data, 0o640))
+	require.NoError(t, os.WriteFile(blobPath, data, 0o600))
 
 	// Write entry file
 	entry := map[string]interface{}{
@@ -45,7 +45,7 @@ func createTestCacheEntry(t *testing.T, cacheDir, content string, age time.Durat
 	}
 	entryData, _ := json.MarshalIndent(entry, "", "  ")
 	entryPath := filepath.Join(entriesDir, hashStr+".json")
-	require.NoError(t, os.WriteFile(entryPath, entryData, 0o640))
+	require.NoError(t, os.WriteFile(entryPath, entryData, 0o600))
 }
 
 func TestCacheStats(t *testing.T) {

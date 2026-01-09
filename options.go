@@ -187,6 +187,15 @@ func WithCacheTTL(ttl time.Duration) ClientOption {
 	}
 }
 
+// WithCacheVerifyOnRead re-hashes cached blobs on cache hits to detect tampering.
+// This is incompatible with lazy loading (WithLazyLoading).
+func WithCacheVerifyOnRead(enabled bool) ClientOption {
+	return func(c *Client) error {
+		c.cacheVerifyOnRead = enabled
+		return nil
+	}
+}
+
 // WithSigner configures signing for push operations.
 // When set, Push will invoke the signer after successfully pushing the artifact
 // and store the signature as an OCI referrer artifact.

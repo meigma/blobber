@@ -28,6 +28,7 @@ Format:
 cache:
   enabled: true
   dir: ""  # Empty means use default XDG cache path
+  verify: false
 ```
 
 ## Configuration Precedence
@@ -45,6 +46,7 @@ Settings are resolved in this order (highest priority first):
 |----------|-------------|
 | `BLOBBER_CACHE_ENABLED` | Enable/disable caching (`true`/`false`) |
 | `BLOBBER_CACHE_DIR` | Cache directory path |
+| `BLOBBER_CACHE_VERIFY` | Re-verify cached blobs on read (`true`/`false`) |
 | `BLOBBER_INSECURE` | Allow insecure connections |
 | `BLOBBER_VERBOSE` | Enable verbose logging |
 
@@ -56,6 +58,7 @@ Displays all settings in YAML format:
 cache:
   dir: ""
   enabled: true
+  verify: false
 insecure: false
 no-cache: false
 verbose: false
@@ -154,6 +157,7 @@ blobber config set <key> <value>
 |-----|------|---------|-------------|
 | `cache.enabled` | bool | `true` | Enable blob caching |
 | `cache.dir` | string | `""` | Cache directory (empty = XDG default) |
+| `cache.verify` | bool | `false` | Re-verify cached blobs on read (slower) |
 
 ### Output
 
@@ -173,6 +177,12 @@ Use a custom cache directory:
 
 ```bash
 blobber config set cache.dir /custom/cache/path
+```
+
+Enable cache verification on read:
+
+```bash
+blobber config set cache.verify true
 ```
 
 ---

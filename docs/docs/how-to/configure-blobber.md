@@ -38,6 +38,7 @@ Output:
 cache:
   dir: ""
   enabled: true
+  verify: false
 insecure: false
 no-cache: false
 verbose: false
@@ -124,6 +125,7 @@ cat ~/.config/blobber/config.yaml
 cache:
   enabled: true
   dir: ""
+  verify: false
 ```
 
 Edit with any text editor:
