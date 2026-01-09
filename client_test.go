@@ -68,7 +68,7 @@ func TestDigestReference(t *testing.T) {
 	}
 }
 
-func TestIsSignatureArtifactType(t *testing.T) {
+func TestIsNonSignatureArtifactType(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -79,49 +79,54 @@ func TestIsSignatureArtifactType(t *testing.T) {
 		{
 			name:         "sigstore bundle",
 			artifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
-			want:         true,
+			want:         false, // signature type, NOT a non-signature
 		},
 		{
 			name:         "cosign simple signing",
 			artifactType: "application/vnd.dev.cosign.simplesigning.v1+json",
-			want:         true,
+			want:         false, // signature type
 		},
 		{
 			name:         "notation signature",
 			artifactType: "application/vnd.cncf.notary.signature",
-			want:         true,
+			want:         false, // signature type
 		},
 		{
 			name:         "SPDX SBOM",
 			artifactType: "application/spdx+json",
-			want:         false,
+			want:         true, // known non-signature
 		},
 		{
 			name:         "CycloneDX SBOM",
 			artifactType: "application/vnd.cyclonedx+json",
-			want:         false,
+			want:         true, // known non-signature
 		},
 		{
 			name:         "in-toto attestation",
 			artifactType: "application/vnd.in-toto+json",
-			want:         false,
+			want:         true, // known non-signature
 		},
 		{
 			name:         "empty string",
 			artifactType: "",
-			want:         false,
+			want:         false, // unknown, should pass through
 		},
 		{
 			name:         "unknown type",
 			artifactType: "application/octet-stream",
-			want:         false,
+			want:         false, // unknown, should pass through for custom signers
+		},
+		{
+			name:         "custom signature type",
+			artifactType: "application/vnd.example.signature+json",
+			want:         false, // unknown, should pass through for custom signers
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := IsSignatureArtifactType(tt.artifactType)
+			got := IsNonSignatureArtifactType(tt.artifactType)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -385,4 +390,45 @@ func TestVerifySignature_OnlySBOM(t *testing.T) {
 	// Should return ErrNoSignature, not ErrSignatureInvalid
 	err := c.verifySignature(context.Background(), "test/repo:tag")
 	assert.ErrorIs(t, err, ErrNoSignature)
+}
+
+func TestVerifySignature_CustomSignerType(t *testing.T) {
+	t.Parallel()
+
+	// Use valid SHA256 digest format (64 hex chars)
+	manifestDigest := "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+	sigData := []byte("custom-signature")
+	customMediaType := "application/vnd.example.custom-signature+json"
+
+	registry := &mockVerifyRegistry{
+		indexBytes:  []byte(`{"schemaVersion":2}`),
+		indexDigest: manifestDigest,
+		layerDesc: core.LayerDescriptor{
+			ManifestDigest: manifestDigest,
+		},
+		referrers: map[string][]core.Referrer{
+			manifestDigest: {
+				// Custom signature type (not in known list)
+				{Digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", ArtifactType: customMediaType},
+			},
+		},
+		referrerData: map[string][]byte{
+			"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": sigData,
+		},
+	}
+
+	verifier := &mockTestVerifier{
+		validSignatures: map[string]bool{
+			manifestDigest + ":" + string(sigData): true,
+		},
+	}
+
+	c := &Client{
+		registry: registry,
+		verifier: verifier,
+	}
+
+	// Custom signature types should be passed to the verifier
+	err := c.verifySignature(context.Background(), "test/repo:tag")
+	require.NoError(t, err)
 }

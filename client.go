@@ -296,11 +296,12 @@ func (c *Client) verifyManifestSignature(ctx context.Context, ref, manifestDiges
 		return fmt.Errorf("fetching referrers: %w", err)
 	}
 
-	// Filter to only signature-type referrers
-	// This prevents SBOMs/attestations from being treated as failed signatures
+	// Filter out known non-signature referrers (SBOMs, attestations)
+	// This prevents them from being treated as failed signature attempts.
+	// Unknown types are passed through to support custom signers.
 	var signatureReferrers []core.Referrer
 	for _, r := range referrers {
-		if IsSignatureArtifactType(r.ArtifactType) {
+		if !IsNonSignatureArtifactType(r.ArtifactType) {
 			signatureReferrers = append(signatureReferrers, r)
 		}
 	}

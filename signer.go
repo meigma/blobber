@@ -10,22 +10,43 @@ import (
 // SignatureArtifactType is the OCI artifact type for sigstore bundles.
 const SignatureArtifactType = "application/vnd.dev.sigstore.bundle.v0.3+json"
 
-// knownSignatureTypes lists artifact types that are recognized as signatures.
-// Used to distinguish signatures from other referrer types (SBOMs, attestations).
-var knownSignatureTypes = map[string]bool{
-	// Sigstore bundle format (blobber default)
-	"application/vnd.dev.sigstore.bundle.v0.3+json": true,
-	// Cosign simple signing format
-	"application/vnd.dev.cosign.simplesigning.v1+json": true,
-	// Notation signature format
-	"application/vnd.cncf.notary.signature": true,
+// knownNonSignatureTypes lists artifact types that are known to NOT be signatures.
+// These are explicitly excluded during verification to avoid treating SBOMs,
+// attestations, and other artifacts as failed signature attempts.
+// Unknown types are passed through to the verifier (supporting custom signers).
+var knownNonSignatureTypes = map[string]bool{
+	// SBOM formats
+	"application/spdx+json":                 true,
+	"application/vnd.cyclonedx+json":        true,
+	"application/vnd.syft+json":             true,
+	"application/vnd.cyclonedx+xml":         true,
+	"application/spdx":                      true,
+	"application/vnd.spdx+json":             true,
+	"application/vnd.spdx.spdx+json":        true,
+	"application/vnd.cyclonedx":             true,
+	"text/spdx":                             true,
+	"text/spdx+xml":                         true,
+	"text/spdx+json":                        true,
+	"text/vnd.cyclonedx+xml":                true,
+	"text/vnd.cyclonedx+json":               true,
+	"text/vnd.in-toto+json":                 true,
+	"text/vnd.syft+json":                    true,
+	"application/vnd.in-toto+json":          true,
+	"application/vnd.dsse.envelope.v1+json": true,
+
+	// Attestation formats (in-toto, SLSA)
+	"application/vnd.in-toto.bundle+json":                  true,
+	"application/vnd.dev.cosign.attestation.v1+json":       true,
+	"application/vnd.dev.cosign.sbom.v1+json":              true,
+	"application/vnd.oci.image.manifest.v1+json":           true,
+	"application/vnd.docker.distribution.manifest.v2+json": true,
 }
 
-// IsSignatureArtifactType reports whether the artifact type represents a signature.
-// Returns true for known signature formats (sigstore, cosign, notation).
-// Returns false for non-signature artifacts like SBOMs or attestations.
-func IsSignatureArtifactType(artifactType string) bool {
-	return knownSignatureTypes[artifactType]
+// IsNonSignatureArtifactType reports whether the artifact type is known to NOT be a signature.
+// Returns true for known non-signature formats (SBOMs, attestations).
+// Returns false for signature formats and unknown types (allowing custom signers).
+func IsNonSignatureArtifactType(artifactType string) bool {
+	return knownNonSignatureTypes[artifactType]
 }
 
 // Signature holds a cryptographic signature and its format metadata.
