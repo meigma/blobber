@@ -53,6 +53,12 @@ func (r *orasRegistry) PushReferrer(ctx context.Context, ref, subjectDigest stri
 		return "", fmt.Errorf("parse subject digest: %w", err)
 	}
 
+	// Resolve subject manifest to get its size (required for OCI descriptor)
+	subjectDesc, err := repo.Manifests().Resolve(ctx, subjectDigest)
+	if err != nil {
+		return "", fmt.Errorf("resolve subject manifest: %w", mapError(err))
+	}
+
 	// Create empty config (OCI 1.1 artifact pattern)
 	emptyConfig := []byte("{}")
 	configDesc := ocispec.Descriptor{
@@ -78,8 +84,9 @@ func (r *orasRegistry) PushReferrer(ctx context.Context, ref, subjectDigest stri
 		Config:       configDesc,
 		Layers:       []ocispec.Descriptor{blobDesc},
 		Subject: &ocispec.Descriptor{
-			MediaType: ocispec.MediaTypeImageManifest,
+			MediaType: subjectDesc.MediaType,
 			Digest:    subjDigest,
+			Size:      subjectDesc.Size,
 		},
 		Annotations: annotations,
 	}

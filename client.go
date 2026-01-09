@@ -216,19 +216,20 @@ func (c *Client) hasCachedBlob(desc LayerDescriptor) bool {
 
 // verifySignature verifies that at least one valid signature exists for the image.
 func (c *Client) verifySignature(ctx context.Context, ref string) error {
-	// Resolve the manifest digest
-	desc, err := c.registry.ResolveLayer(ctx, ref)
+	// Fetch the manifest bytes and digest
+	manifestBytes, manifestDigest, err := c.registry.FetchManifest(ctx, ref)
 	if err != nil {
-		return fmt.Errorf("resolve %s for verification: %w", ref, err)
+		return fmt.Errorf("fetch manifest for %s: %w", ref, err)
 	}
 
-	manifestDigest := desc.ManifestDigest
 	if manifestDigest == "" {
 		return fmt.Errorf("no manifest digest for %s", ref)
 	}
 
 	// Fetch signature referrers
-	referrers, err := c.registry.FetchReferrers(ctx, ref, manifestDigest, SignatureArtifactType)
+	// Use empty artifact type to fetch all referrers, allowing custom signers
+	// with different media types to be discovered and verified.
+	referrers, err := c.registry.FetchReferrers(ctx, ref, manifestDigest, "")
 	if err != nil {
 		return fmt.Errorf("fetching signatures for %s: %w", ref, err)
 	}
@@ -240,9 +241,9 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 	// Try to verify at least one signature
 	var lastErr error
 	for _, referrer := range referrers {
-		sigData, err := c.registry.FetchReferrer(ctx, ref, referrer.Digest)
-		if err != nil {
-			lastErr = err
+		sigData, fetchErr := c.registry.FetchReferrer(ctx, ref, referrer.Digest)
+		if fetchErr != nil {
+			lastErr = fetchErr
 			continue
 		}
 
@@ -251,14 +252,14 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 			MediaType: referrer.ArtifactType,
 		}
 
-		d, err := digest.Parse(manifestDigest)
-		if err != nil {
-			lastErr = err
+		d, parseErr := digest.Parse(manifestDigest)
+		if parseErr != nil {
+			lastErr = parseErr
 			continue
 		}
 
-		if err := c.verifier.Verify(ctx, d, []byte(manifestDigest), sig); err != nil {
-			lastErr = err
+		if verifyErr := c.verifier.Verify(ctx, d, manifestBytes, sig); verifyErr != nil {
+			lastErr = verifyErr
 			continue
 		}
 

@@ -104,6 +104,11 @@ func (m *mockRegistry) FetchReferrer(_ context.Context, _, _ string) ([]byte, er
 	return nil, core.ErrNotFound
 }
 
+//nolint:gocritic // unnamedResult: not needed for test mock
+func (m *mockRegistry) FetchManifest(_ context.Context, _ string) ([]byte, string, error) {
+	return nil, "", nil
+}
+
 // createTestBlob creates test data with a known digest.
 func createTestBlob(content string) (data []byte, digest string) {
 	data = []byte(content)

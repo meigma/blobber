@@ -678,3 +678,36 @@ func isIndex(mediaType string) bool {
 	return mediaType == ocispec.MediaTypeImageIndex ||
 		mediaType == "application/vnd.docker.distribution.manifest.list.v2+json"
 }
+
+// FetchManifest fetches the raw manifest bytes for a reference.
+// Returns the manifest JSON and its digest.
+//
+//nolint:gocritic // unnamedResult: naming results would cause shadowing with err
+func (r *orasRegistry) FetchManifest(ctx context.Context, ref string) ([]byte, string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, "", err
+	}
+
+	parsedRef, err := registry.ParseReference(ref)
+	if err != nil {
+		return nil, "", core.ErrInvalidRef
+	}
+
+	repo, err := r.newRepository(parsedRef)
+	if err != nil {
+		return nil, "", fmt.Errorf("create repository: %w", err)
+	}
+
+	desc, manifestReader, err := repo.Manifests().FetchReference(ctx, parsedRef.Reference)
+	if err != nil {
+		return nil, "", mapError(err)
+	}
+	defer manifestReader.Close()
+
+	manifestData, err := io.ReadAll(manifestReader)
+	if err != nil {
+		return nil, "", fmt.Errorf("read manifest: %w", err)
+	}
+
+	return manifestData, desc.Digest.String(), nil
+}

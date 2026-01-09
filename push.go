@@ -62,8 +62,14 @@ func (c *Client) signAndStoreReferrer(ctx context.Context, ref, manifestDigest s
 		return fmt.Errorf("parse digest: %w", err)
 	}
 
-	// Sign the manifest digest (payload is the digest string)
-	sig, err := c.signer.Sign(ctx, d, []byte(manifestDigest))
+	// Fetch the manifest bytes for signing
+	manifestBytes, _, err := c.registry.FetchManifest(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("fetch manifest: %w", err)
+	}
+
+	// Sign the manifest
+	sig, err := c.signer.Sign(ctx, d, manifestBytes)
 	if err != nil {
 		return fmt.Errorf("signing: %w", err)
 	}

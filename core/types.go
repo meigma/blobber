@@ -217,6 +217,10 @@ type Registry interface {
 	// FetchReferrer fetches the content of a specific referrer by its digest.
 	// Returns the first layer's content (the signature/attestation data).
 	FetchReferrer(ctx context.Context, ref string, referrerDigest string) ([]byte, error)
+
+	// FetchManifest fetches the raw manifest bytes for a reference.
+	// Returns the manifest JSON and its digest.
+	FetchManifest(ctx context.Context, ref string) ([]byte, string, error)
 }
 
 // ArchiveBuilder creates eStargz blobs from files.

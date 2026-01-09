@@ -12,7 +12,17 @@ import (
 //
 // If a cache is configured (via WithCacheDir), the blob will be fetched from cache
 // if available, or downloaded and cached for future use.
+//
+// If a verifier is configured (via WithVerifier), the signature is verified before
+// downloading the blob. Verification failure prevents the pull.
 func (c *Client) Pull(ctx context.Context, ref, destDir string, opts ...PullOption) error {
+	// Verify signature if verifier configured
+	if c.verifier != nil {
+		if err := c.verifySignature(ctx, ref); err != nil {
+			return err
+		}
+	}
+
 	// Apply options
 	cfg := &pullConfig{}
 	for _, opt := range opts {
