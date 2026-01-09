@@ -2,6 +2,7 @@ package sigstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/opencontainers/go-digest"
@@ -28,7 +29,7 @@ func NewSigner(opts ...SignerOption) (*Signer, error) {
 
 	// Require a keypair
 	if s.keypair == nil {
-		return nil, fmt.Errorf("sigstore: no keypair configured (use WithEphemeralKey or WithKeyFile)")
+		return nil, errors.New("sigstore: no keypair configured (use WithEphemeralKey or WithKeyFile)")
 	}
 
 	return s, nil

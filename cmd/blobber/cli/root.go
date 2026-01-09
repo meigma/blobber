@@ -63,7 +63,8 @@ func init() {
 
 	// Verification flags
 	rootCmd.PersistentFlags().Bool("verify", false, "Verify artifact signatures")
-	rootCmd.PersistentFlags().String("verify-identity", "", "Required identity (format: issuer,subject)")
+	rootCmd.PersistentFlags().String("verify-issuer", "", "Required OIDC issuer URL (e.g., https://accounts.google.com)")
+	rootCmd.PersistentFlags().String("verify-subject", "", "Required identity subject (e.g., user@example.com)")
 	rootCmd.PersistentFlags().String("trusted-root", "", "Path to trusted root JSON file")
 
 	// Bind flags to Viper (errors only occur if flag doesn't exist, which can't happen here)
@@ -84,7 +85,9 @@ func init() {
 	//nolint:errcheck
 	viper.BindPFlag("verify", rootCmd.PersistentFlags().Lookup("verify"))
 	//nolint:errcheck
-	viper.BindPFlag("verify-identity", rootCmd.PersistentFlags().Lookup("verify-identity"))
+	viper.BindPFlag("verify-issuer", rootCmd.PersistentFlags().Lookup("verify-issuer"))
+	//nolint:errcheck
+	viper.BindPFlag("verify-subject", rootCmd.PersistentFlags().Lookup("verify-subject"))
 	//nolint:errcheck
 	viper.BindPFlag("trusted-root", rootCmd.PersistentFlags().Lookup("trusted-root"))
 
@@ -213,12 +216,13 @@ func createVerifier() (blobber.Verifier, error) {
 	}
 
 	// Parse identity requirement if specified
-	if identity := viper.GetString("verify-identity"); identity != "" {
-		parts := strings.SplitN(identity, ",", 2)
-		if len(parts) != 2 {
-			return nil, errors.New("--verify-identity must be in format: issuer,subject")
+	issuer := viper.GetString("verify-issuer")
+	subject := viper.GetString("verify-subject")
+	if issuer != "" || subject != "" {
+		if issuer == "" || subject == "" {
+			return nil, errors.New("--verify-issuer and --verify-subject must both be specified")
 		}
-		opts = append(opts, sigstore.WithIdentity(parts[0], parts[1]))
+		opts = append(opts, sigstore.WithIdentity(issuer, subject))
 	}
 
 	return sigstore.NewVerifier(opts...)

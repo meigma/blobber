@@ -3,6 +3,13 @@
 // This package implements blobber.Signer and blobber.Verifier using the sigstore-go
 // library for cryptographic signing operations.
 //
+// # Separate Module
+//
+// This package is a separate Go module (github.com/meigma/blobber/sigstore) to isolate
+// the sigstore-go dependency. This design allows users who don't need signing/verification
+// to import github.com/meigma/blobber without pulling in sigstore-go and its transitive
+// dependencies (protobuf, gRPC, OIDC, etc.).
+//
 // # Signing
 //
 // The Signer creates Sigstore bundles that can be stored as OCI referrer artifacts.

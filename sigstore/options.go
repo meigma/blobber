@@ -1,6 +1,8 @@
 package sigstore
 
 import (
+	"log/slog"
+
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/sign"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -76,6 +78,15 @@ func WithIdentity(issuer, subject string) VerifierOption {
 			return err
 		}
 		v.identity = &id
+		return nil
+	}
+}
+
+// WithLogger sets a custom logger for the verifier.
+// This enables logging of warnings (e.g., when no identity is configured).
+func WithLogger(logger *slog.Logger) VerifierOption {
+	return func(v *Verifier) error {
+		v.logger = logger
 		return nil
 	}
 }

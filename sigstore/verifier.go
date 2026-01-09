@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
@@ -17,11 +18,14 @@ import (
 type Verifier struct {
 	trustedRoot root.TrustedMaterial
 	identity    *verify.CertificateIdentity
+	logger      *slog.Logger
 }
 
 // NewVerifier creates a sigstore-based verifier.
 func NewVerifier(opts ...VerifierOption) (*Verifier, error) {
-	v := &Verifier{}
+	v := &Verifier{
+		logger: slog.New(slog.DiscardHandler),
+	}
 	for _, opt := range opts {
 		if err := opt(v); err != nil {
 			return nil, err
@@ -37,6 +41,12 @@ func NewVerifier(opts ...VerifierOption) (*Verifier, error) {
 		v.trustedRoot = tr
 	}
 
+	// Warn if no identity is configured
+	if v.identity == nil {
+		v.logger.Warn("sigstore verifier created without identity requirement; " +
+			"any valid signature will be accepted regardless of signer")
+	}
+
 	return v, nil
 }
 
@@ -48,7 +58,7 @@ func (v *Verifier) Verify(ctx context.Context, manifestDigest digest.Digest, pay
 	}
 
 	// Build verifier with transparency log and timestamp requirements
-	verifier, err := verify.NewSignedEntityVerifier(
+	verifier, err := verify.NewVerifier(
 		v.trustedRoot,
 		verify.WithObserverTimestamps(1),
 		verify.WithTransparencyLog(1),
@@ -72,7 +82,7 @@ func (v *Verifier) Verify(ctx context.Context, manifestDigest digest.Digest, pay
 
 	_, err = verifier.Verify(&b, policy)
 	if err != nil {
-		return fmt.Errorf("%w: %v", blobber.ErrSignatureInvalid, err)
+		return fmt.Errorf("%w: %w", blobber.ErrSignatureInvalid, err)
 	}
 
 	return nil

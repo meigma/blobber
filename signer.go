@@ -14,6 +14,13 @@ const SignatureArtifactType = "application/vnd.dev.sigstore.bundle.v0.3+json"
 // These are explicitly excluded during verification to avoid treating SBOMs,
 // attestations, and other artifacts as failed signature attempts.
 // Unknown types are passed through to the verifier (supporting custom signers).
+//
+// References for common artifact types:
+// - OCI Artifacts: https://github.com/opencontainers/image-spec/blob/main/artifacts-guidance.md
+// - SPDX: https://spdx.dev/specifications/
+// - CycloneDX: https://cyclonedx.org/specification/overview/
+// - in-toto: https://in-toto.io/
+// - Sigstore: https://github.com/sigstore/protobuf-specs
 var knownNonSignatureTypes = map[string]bool{
 	// SBOM formats
 	"application/spdx+json":                 true,
