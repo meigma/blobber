@@ -251,6 +251,27 @@ blobber cat ghcr.io/YOUR_REGISTRY/webapp-config:v1 app.yaml
 blobber cat ghcr.io/YOUR_REGISTRY/webapp-config:v2 app.yaml
 ```
 
+## Step 11: Sign Your Artifacts (Optional)
+
+For production use, you can sign artifacts to ensure integrity and provenance:
+
+```bash
+blobber push --sign . ghcr.io/YOUR_REGISTRY/webapp-config:v1-signed
+```
+
+This opens a browser for OIDC authentication, then signs the artifact using Sigstore.
+
+Later, verify when pulling:
+
+```bash
+blobber pull --verify \
+  --verify-issuer https://accounts.google.com \
+  --verify-subject your-email@example.com \
+  ghcr.io/YOUR_REGISTRY/webapp-config:v1-signed ./verified-output
+```
+
+If the signature is invalid or missing, the pull fails before downloading any content.
+
 ## What We Learned
 
 - `blobber push <dir> <ref>` uploads a directory to a registry
@@ -260,10 +281,14 @@ blobber cat ghcr.io/YOUR_REGISTRY/webapp-config:v2 app.yaml
 - `blobber pull <ref> <dir>` downloads everything
 - `blobber pull --overwrite` replaces existing files
 - Tags (`:v1`, `:v2`) manage versions
+- `--sign` adds cryptographic signatures for supply chain security
+- `--verify` ensures artifacts are signed by trusted identities
 
 ## Next Steps
 
 - [How to Authenticate](/docs/how-to/authenticate) - Configure credentials for private registries
+- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Detailed signing guide
 - [How to Use Compression](/docs/how-to/use-compression) - Choose between gzip and zstd
 - [CLI Reference](/docs/reference/cli/push) - Complete command documentation
 - [About eStargz](/docs/explanation/about-estargz) - Why selective retrieval is efficient
+- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing

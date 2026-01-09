@@ -47,7 +47,29 @@ We follow a coordinated disclosure process:
 
 Blobber implements the following security measures:
 
-### Code Signing and Verification
+### Artifact Signing and Verification
+
+Blobber supports [Sigstore](https://sigstore.dev) signing and verification for artifacts you push and pull:
+
+- **Keyless signing**: Sign artifacts using OIDC identity (GitHub, Google, Microsoft) without managing private keys
+- **Key-based signing**: Sign with your own private keys (ECDSA, RSA, Ed25519)
+- **Signature verification**: Verify artifact signatures before pulling, ensuring provenance and integrity
+- **Identity verification**: Require signatures from specific OIDC issuers and subjects
+
+```bash
+# Push with signing
+blobber push --sign ./config ghcr.io/myorg/config:v1
+
+# Pull with verification
+blobber pull --verify \
+  --verify-issuer https://token.actions.githubusercontent.com \
+  --verify-subject https://github.com/myorg/myrepo/.github/workflows/release.yml@refs/heads/main \
+  ghcr.io/myorg/config:v1 ./output
+```
+
+See [Signing & Verification](https://blobber.meigma.dev/docs/how-to/sign-artifacts) for complete documentation.
+
+### Release Binary Signing
 
 - All release binaries are signed using [Cosign](https://github.com/sigstore/cosign) with keyless signing via GitHub Actions OIDC
 - Each release includes SHA256 checksums for integrity verification
@@ -93,9 +115,14 @@ When using Blobber:
 - Use credential helpers for enhanced security rather than storing plain credentials
 - Cached data is stored locally; ensure appropriate file permissions on cache directories
 - When pushing to registries, use authenticated connections and verify TLS certificates
+- **Enable signature verification** in production with `--verify --verify-issuer --verify-subject`
+- **Never use `--verify-unsafe`** in production; it accepts signatures from any identity
+- Private signing keys should be stored securely with appropriate file permissions
 
 ## Learning More
 
-- [Blobber Documentation](https://meigma.github.io/blobber/)
+- [Blobber Documentation](https://blobber.meigma.dev/)
+- [Signing & Verification Guide](https://blobber.meigma.dev/docs/how-to/sign-artifacts)
+- [About Signing](https://blobber.meigma.dev/docs/explanation/about-signing)
+- [Sigstore Documentation](https://docs.sigstore.dev/)
 - [ORAS Security](https://oras.land/docs/)
-- [Cosign Documentation](https://docs.sigstore.dev/cosign/overview/)

@@ -41,6 +41,12 @@ var (
 
 	// ErrRangeNotSupported indicates the registry does not support range requests.
 	ErrRangeNotSupported = errors.New("blobber: range requests not supported")
+
+	// ErrSignatureInvalid indicates signature verification failed.
+	ErrSignatureInvalid = errors.New("blobber: signature verification failed")
+
+	// ErrNoSignature indicates no signature was found when verification was required.
+	ErrNoSignature = errors.New("blobber: no signature found")
 )
 
 // ExtractLimits defines safety limits for extraction.
@@ -152,6 +158,24 @@ type RegistryPushOptions struct {
 	BlobSize int64
 }
 
+// Referrer represents an OCI referrer artifact (e.g., signature, attestation).
+type Referrer struct {
+	// Digest is the referrer manifest digest.
+	Digest string
+	// ArtifactType identifies the referrer type (e.g., "application/vnd.dev.sigstore.bundle.v0.3+json").
+	ArtifactType string
+	// Annotations are optional key-value metadata.
+	Annotations map[string]string
+}
+
+// ReferrerPushOptions configures how a referrer artifact is pushed.
+type ReferrerPushOptions struct {
+	// ArtifactType is the OCI artifact type (required).
+	ArtifactType string
+	// Annotations are optional manifest annotations.
+	Annotations map[string]string
+}
+
 // Registry handles OCI registry operations.
 // This interface is implemented by internal/registry.
 type Registry interface {
@@ -179,6 +203,24 @@ type Registry interface {
 	// Used for resuming partial downloads and selective file access.
 	// Returns ErrRangeNotSupported if the registry doesn't support range requests.
 	FetchBlobRange(ctx context.Context, ref string, desc LayerDescriptor, offset, length int64) (io.ReadCloser, error)
+
+	// PushReferrer pushes a referrer artifact that references the subject digest.
+	// The data is stored as a single layer in an OCI manifest with the subject field set.
+	// Returns the referrer manifest digest.
+	PushReferrer(ctx context.Context, ref string, subjectDigest string, data []byte, opts *ReferrerPushOptions) (string, error)
+
+	// FetchReferrers returns all referrers for a subject digest, optionally filtered by artifact type.
+	// Uses the OCI 1.1 referrers API (GET /v2/<name>/referrers/<digest>?artifactType=...).
+	// Pass empty artifactType to fetch all referrers.
+	FetchReferrers(ctx context.Context, ref string, subjectDigest string, artifactType string) ([]Referrer, error)
+
+	// FetchReferrer fetches the content of a specific referrer by its digest.
+	// Returns the first layer's content (the signature/attestation data).
+	FetchReferrer(ctx context.Context, ref string, referrerDigest string) ([]byte, error)
+
+	// FetchManifest fetches the raw manifest bytes for a reference.
+	// Returns the manifest JSON and its digest.
+	FetchManifest(ctx context.Context, ref string) ([]byte, string, error)
 }
 
 // ArchiveBuilder creates eStargz blobs from files.

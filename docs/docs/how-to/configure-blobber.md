@@ -38,6 +38,13 @@ Output:
 cache:
   dir: ""
   enabled: true
+  verify: false
+sign:
+  enabled: false
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+verify:
+  enabled: false
 insecure: false
 no-cache: false
 verbose: false
@@ -124,6 +131,13 @@ cat ~/.config/blobber/config.yaml
 cache:
   enabled: true
   dir: ""
+  verify: false
+sign:
+  enabled: false
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+verify:
+  enabled: false
 ```
 
 Edit with any text editor:
@@ -154,7 +168,57 @@ export XDG_CACHE_HOME=/custom/cache
 blobber cache info   # Shows /custom/cache/blobber
 ```
 
+## Configure Signing Defaults
+
+### Via Config File
+
+```yaml
+sign:
+  enabled: true
+  key: /path/to/private-key.pem  # For key-based signing
+  fulcio: https://fulcio.internal.example.com
+  rekor: https://rekor.internal.example.com
+```
+
+### Via Environment Variables
+
+```bash
+export BLOBBER_SIGN_ENABLED=true
+export BLOBBER_SIGN_KEY=/path/to/private-key.pem
+export BLOBBER_SIGN_FULCIO=https://fulcio.internal.example.com
+export BLOBBER_SIGN_REKOR=https://rekor.internal.example.com
+```
+
+### Via Command-Line Flags
+
+```bash
+blobber push --sign --fulcio-url https://fulcio.internal --rekor-url https://rekor.internal ./config ghcr.io/org/config:v1
+```
+
+## Configure Verification Defaults
+
+### Via Config File
+
+```yaml
+verify:
+  enabled: true
+  issuer: https://accounts.google.com
+  subject: ci@company.com
+  trusted-root: /path/to/trusted-root.json
+```
+
+### Via Environment Variables
+
+```bash
+export BLOBBER_VERIFY_ENABLED=true
+export BLOBBER_VERIFY_ISSUER=https://accounts.google.com
+export BLOBBER_VERIFY_SUBJECT=ci@company.com
+export BLOBBER_VERIFY_TRUSTED_ROOT=/path/to/trusted-root.json
+```
+
 ## See Also
 
 - [CLI Reference: config](/docs/reference/cli/config)
 - [How to Manage Cache](/docs/how-to/manage-cache)
+- [How to Sign Artifacts](/docs/how-to/sign-artifacts)
+- [How to Verify Signatures](/docs/how-to/verify-signatures)

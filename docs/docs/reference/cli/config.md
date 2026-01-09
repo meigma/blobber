@@ -28,6 +28,21 @@ Format:
 cache:
   enabled: true
   dir: ""  # Empty means use default XDG cache path
+  verify: false
+
+sign:
+  enabled: false
+  key: ""  # Path to private key (for key-based signing)
+  password: ""  # Private key password (if encrypted)
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+
+verify:
+  enabled: false
+  issuer: ""  # Required OIDC issuer (e.g., https://accounts.google.com)
+  subject: ""  # Required signer identity (e.g., user@example.com)
+  unsafe: false  # Accept any valid signature (development only)
+  trusted-root: ""  # Path to custom trusted root JSON
 ```
 
 ## Configuration Precedence
@@ -41,12 +56,40 @@ Settings are resolved in this order (highest priority first):
 
 ## Environment Variables
 
+### General
+
+| Variable | Description |
+|----------|-------------|
+| `BLOBBER_INSECURE` | Allow insecure connections |
+| `BLOBBER_VERBOSE` | Enable verbose logging |
+
+### Cache
+
 | Variable | Description |
 |----------|-------------|
 | `BLOBBER_CACHE_ENABLED` | Enable/disable caching (`true`/`false`) |
 | `BLOBBER_CACHE_DIR` | Cache directory path |
-| `BLOBBER_INSECURE` | Allow insecure connections |
-| `BLOBBER_VERBOSE` | Enable verbose logging |
+| `BLOBBER_CACHE_VERIFY` | Re-verify cached blobs on read (`true`/`false`) |
+
+### Signing
+
+| Variable | Description |
+|----------|-------------|
+| `BLOBBER_SIGN_ENABLED` | Enable signing on push |
+| `BLOBBER_SIGN_KEY` | Path to private key for signing |
+| `BLOBBER_SIGN_PASSWORD` | Password for encrypted private key |
+| `BLOBBER_SIGN_FULCIO` | Fulcio CA URL for keyless signing |
+| `BLOBBER_SIGN_REKOR` | Rekor transparency log URL |
+
+### Verification
+
+| Variable | Description |
+|----------|-------------|
+| `BLOBBER_VERIFY_ENABLED` | Enable signature verification on pull |
+| `BLOBBER_VERIFY_ISSUER` | Required OIDC issuer URL |
+| `BLOBBER_VERIFY_SUBJECT` | Required signer identity |
+| `BLOBBER_VERIFY_UNSAFE` | Accept any valid signature (unsafe) |
+| `BLOBBER_VERIFY_TRUSTED_ROOT` | Path to custom trusted root JSON |
 
 ## Output
 
@@ -56,6 +99,13 @@ Displays all settings in YAML format:
 cache:
   dir: ""
   enabled: true
+  verify: false
+sign:
+  enabled: false
+  fulcio: https://fulcio.sigstore.dev
+  rekor: https://rekor.sigstore.dev
+verify:
+  enabled: false
 insecure: false
 no-cache: false
 verbose: false
@@ -150,10 +200,33 @@ blobber config set <key> <value>
 
 ### Available Keys
 
+#### Cache
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cache.enabled` | bool | `true` | Enable blob caching |
 | `cache.dir` | string | `""` | Cache directory (empty = XDG default) |
+| `cache.verify` | bool | `false` | Re-verify cached blobs on read (slower) |
+
+#### Signing
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `sign.enabled` | bool | `false` | Enable signing on push |
+| `sign.key` | string | `""` | Path to private key for signing |
+| `sign.password` | string | `""` | Password for encrypted private key |
+| `sign.fulcio` | string | `https://fulcio.sigstore.dev` | Fulcio CA URL |
+| `sign.rekor` | string | `https://rekor.sigstore.dev` | Rekor transparency log URL |
+
+#### Verification
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `verify.enabled` | bool | `false` | Enable signature verification on pull |
+| `verify.issuer` | string | `""` | Required OIDC issuer URL |
+| `verify.subject` | string | `""` | Required signer identity |
+| `verify.unsafe` | bool | `false` | Accept any valid signature |
+| `verify.trusted-root` | string | `""` | Path to custom trusted root JSON |
 
 ### Output
 
@@ -173,6 +246,32 @@ Use a custom cache directory:
 
 ```bash
 blobber config set cache.dir /custom/cache/path
+```
+
+Enable cache verification on read:
+
+```bash
+blobber config set cache.verify true
+```
+
+Enable signing with default Sigstore:
+
+```bash
+blobber config set sign.enabled true
+```
+
+Configure key-based signing:
+
+```bash
+blobber config set sign.key /path/to/private-key.pem
+```
+
+Configure verification with identity requirements:
+
+```bash
+blobber config set verify.enabled true
+blobber config set verify.issuer https://accounts.google.com
+blobber config set verify.subject developer@company.com
 ```
 
 ---

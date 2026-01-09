@@ -73,6 +73,17 @@ func runConfigInit(_ *cobra.Command, _ []string) error {
 	defaultConfig := map[string]any{
 		"cache": map[string]any{
 			"enabled": true,
+			"verify":  false,
+		},
+		"sign": map[string]any{
+			"enabled": false,
+			// key, password omitted - typically set via flags or env vars for security
+			"fulcio": defaultFulcioURL,
+			"rekor":  defaultRekorURL,
+		},
+		"verify": map[string]any{
+			"enabled": false,
+			// issuer, subject, trusted-root omitted - must be explicitly configured
 		},
 	}
 	data, err := yaml.Marshal(defaultConfig)

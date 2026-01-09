@@ -14,6 +14,7 @@ Blobber is a Go module and CLI for pushing and pulling arbitrary files to and fr
 - **List files without downloading** - See what's in an image before pulling
 - **Stream individual files** - Fetch only what you need, on-demand
 - **First-class eStargz support** - Efficient seekable compression for selective retrieval
+- **Cryptographic signing** - Sign artifacts with Sigstore for supply chain security
 
 ## Quick Example
 

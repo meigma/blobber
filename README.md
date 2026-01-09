@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/meigma/blobber)](https://github.com/meigma/blobber/releases)
 [![License](https://img.shields.io/github/license/meigma/blobber)](LICENSE)
 
-> A Go library and CLI for pushing and pulling files to OCI container registries.
+> A Go library and CLI for securely pushing and pulling files to OCI container registries.
 
 Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob/main/docs/estargz.md) format to enable listing and selective retrieval of files without downloading entire images.
 Listing and streaming require eStargz images; Blobber pushes eStargz by default.
@@ -47,6 +47,9 @@ go get github.com/meigma/blobber
 # Push a directory to a registry
 blobber push ./config ghcr.io/myorg/config:v1
 
+# Push with Sigstore signing
+blobber push --sign ./config ghcr.io/myorg/config:v1
+
 # List files without downloading
 blobber list ghcr.io/myorg/config:v1
 
@@ -55,6 +58,12 @@ blobber cat ghcr.io/myorg/config:v1 app.yaml
 
 # Pull all files to a local directory
 blobber pull ghcr.io/myorg/config:v1 ./output
+
+# Pull with signature verification
+blobber pull --verify \
+  --verify-issuer https://accounts.google.com \
+  --verify-subject dev@company.com \
+  ghcr.io/myorg/config:v1 ./output
 ```
 
 ### Library
@@ -69,44 +78,43 @@ import (
     "os"
 
     "github.com/meigma/blobber"
+    "github.com/meigma/blobber/sigstore"
 )
 
 func main() {
     ctx := context.Background()
-    client, err := blobber.NewClient()
+
+    // Create a client with Sigstore signing
+    signer, _ := sigstore.NewSigner(sigstore.WithEphemeralKey())
+    client, err := blobber.NewClient(blobber.WithSigner(signer))
     if err != nil {
         log.Fatal(err)
     }
 
-    // Push a directory
+    // Push a directory (automatically signed)
     digest, err := client.Push(ctx, "ghcr.io/myorg/config:v1", os.DirFS("./config"))
     if err != nil {
         log.Fatal(err)
     }
     fmt.Println(digest)
 
-    // Open an image and list files
-    img, err := client.OpenImage(ctx, "ghcr.io/myorg/config:v1")
+    // Create a client with signature verification
+    verifier, _ := sigstore.NewVerifier(
+        sigstore.WithIdentity("https://accounts.google.com", "dev@company.com"),
+    )
+    verifiedClient, _ := blobber.NewClient(blobber.WithVerifier(verifier))
+
+    // Open an image (signature verified before access)
+    img, err := verifiedClient.OpenImage(ctx, "ghcr.io/myorg/config:v1")
     if err != nil {
         log.Fatal(err)
     }
     defer img.Close()
 
-    entries, err := img.List()
-    if err != nil {
-        log.Fatal(err)
-    }
+    entries, _ := img.List()
     for _, e := range entries {
         fmt.Printf("%s (%d bytes)\n", e.Path(), e.Size())
     }
-
-    // Read a single file
-    rc, err := img.Open("app.yaml")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer rc.Close()
-    // ... read from rc
 }
 ```
 
@@ -114,6 +122,7 @@ func main() {
 
 - **List without download** - View file contents using only the eStargz table of contents
 - **Selective retrieval** - Stream individual files via HTTP range requests
+- **Sigstore signing** - Sign artifacts for supply chain security; verify before pulling
 - **Any OCI registry** - Works with GHCR, Docker Hub, ECR, GCR, or self-hosted registries
 - **Compression options** - gzip (default) or zstd
 - **Local caching** - Cache blobs locally for faster repeated operations
@@ -144,6 +153,7 @@ Full documentation is available at [blobber.meigma.dev](https://blobber.meigma.d
 
 - [CLI Getting Started](https://blobber.meigma.dev/docs/getting-started/cli/installation)
 - [Library Getting Started](https://blobber.meigma.dev/docs/getting-started/library/installation)
+- [Signing & Verification](https://blobber.meigma.dev/docs/how-to/sign-artifacts)
 - [CLI Reference](https://blobber.meigma.dev/docs/reference/cli/push)
 - [Library Reference](https://blobber.meigma.dev/docs/reference/library/client)
 - [Configuration Guide](https://blobber.meigma.dev/docs/how-to/configure-blobber)

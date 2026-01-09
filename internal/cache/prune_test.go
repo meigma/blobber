@@ -21,7 +21,7 @@ func saveEntryRaw(path string, entry *Entry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o640)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func TestCache_Size(t *testing.T) {
@@ -370,7 +370,7 @@ func TestCache_Prune_RemovesPartialFiles(t *testing.T) {
 
 		// Create a stale partial file (simulating interrupted download)
 		partialPath := filepath.Join(dir, "blobs", "sha256", extractHash(digest)+".partial")
-		err = os.WriteFile(partialPath, []byte("partial data"), 0o640)
+		err = os.WriteFile(partialPath, []byte("partial data"), 0o600)
 		require.NoError(t, err)
 
 		// Backdate entry for TTL eviction using raw write

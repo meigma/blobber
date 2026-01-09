@@ -17,9 +17,13 @@ var pushCmd = &cobra.Command{
 	Short: "Push a directory to an OCI registry",
 	Long: `Push uploads a directory of files to an OCI registry as an eStargz image.
 
+Use --sign to sign the artifact with Sigstore (keyless). This requires OIDC
+authentication (e.g., via browser or OIDC token).
+
 Examples:
   blobber push ./config ghcr.io/org/config:v1
-  blobber push ./data ghcr.io/org/data:latest --compression zstd`,
+  blobber push ./data ghcr.io/org/data:latest --compression zstd
+  blobber push ./data ghcr.io/org/data:latest --sign`,
 	Args: cobra.ExactArgs(2),
 	RunE: runPush,
 }

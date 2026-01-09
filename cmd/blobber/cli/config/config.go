@@ -13,4 +13,5 @@ type CacheConfig struct {
 	Enabled bool          `mapstructure:"enabled"`
 	Dir     string        `mapstructure:"dir"`
 	TTL     time.Duration `mapstructure:"ttl"`
+	Verify  bool          `mapstructure:"verify"`
 }

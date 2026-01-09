@@ -29,6 +29,11 @@ func TestMain(m *testing.M) {
 	}
 	registryHost = host
 
+	// Initialize VirtualSigstore for signing tests
+	if err := initSigstoreEnv(); err != nil {
+		panic("failed to initialize sigstore: " + err.Error())
+	}
+
 	// Run tests with blobber command available
 	exitCode := testscript.RunMain(m, map[string]func() int{
 		"blobber": func() int {
@@ -57,6 +62,15 @@ func TestCLI(t *testing.T) {
 			env.Setenv("XDG_CACHE_HOME", env.WorkDir+"/.cache")
 			env.Setenv("XDG_CONFIG_HOME", env.WorkDir+"/.config")
 			return nil
+		},
+		// Sigstore test commands run in-process to access sigstoreTestEnv
+		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
+			"sigstore-gen-trusted-root":    cmdSigstoreGenTrustedRoot,
+			"sigstore-gen-key":             cmdSigstoreGenKey,
+			"sigstore-push-signed":         cmdSigstorePushSigned,
+			"sigstore-push-invalid-sig":    cmdSigstorePushInvalidSig,
+			"sigstore-push-wrong-identity": cmdSigstorePushWrongIdentity,
+			"sigstore-push-tampered":       cmdSigstorePushTampered,
 		},
 	})
 }

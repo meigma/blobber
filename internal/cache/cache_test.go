@@ -92,6 +92,23 @@ func (m *mockRegistry) FetchBlobRange(_ context.Context, _ string, desc core.Lay
 	return io.NopCloser(bytes.NewReader(data[offset:end])), nil
 }
 
+func (m *mockRegistry) PushReferrer(_ context.Context, _, _ string, _ []byte, _ *core.ReferrerPushOptions) (string, error) {
+	return "", nil
+}
+
+func (m *mockRegistry) FetchReferrers(_ context.Context, _, _, _ string) ([]core.Referrer, error) {
+	return nil, nil
+}
+
+func (m *mockRegistry) FetchReferrer(_ context.Context, _, _ string) ([]byte, error) {
+	return nil, core.ErrNotFound
+}
+
+//nolint:gocritic // unnamedResult: not needed for test mock
+func (m *mockRegistry) FetchManifest(_ context.Context, _ string) ([]byte, string, error) {
+	return nil, "", nil
+}
+
 // createTestBlob creates test data with a known digest.
 func createTestBlob(content string) (data []byte, digest string) {
 	data = []byte(content)
@@ -278,7 +295,7 @@ func TestCache_OpenStream(t *testing.T) {
 
 		// Corrupt the cached blob by truncating it
 		blobPath := filepath.Join(dir, "blobs", "sha256", extractHash(digest))
-		err = os.WriteFile(blobPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(blobPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// OpenStream should detect mismatch, evict, and re-download
@@ -353,7 +370,7 @@ func TestCache_OpenStreamThrough(t *testing.T) {
 
 		// Corrupt the cached blob by truncating it
 		blobPath := filepath.Join(dir, "blobs", "sha256", extractHash(digest))
-		err = os.WriteFile(blobPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(blobPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// OpenStreamThrough should detect mismatch, evict, and re-download
@@ -390,7 +407,7 @@ func TestCache_OpenStreamThrough(t *testing.T) {
 		entryPath := filepath.Join(dir, "entries", "sha256", hashStr+".json")
 
 		// Write partial file with some data
-		err = os.WriteFile(partialPath, data[:len(data)/2], 0o640)
+		err = os.WriteFile(partialPath, data[:len(data)/2], 0o600)
 		require.NoError(t, err)
 
 		// Write entry with ranges that would cause issues if not cleared
@@ -650,11 +667,11 @@ func TestCache_ResumeDownload(t *testing.T) {
 		// Write first half of data to partial file
 		halfLen := len(data) / 2
 		//nolint:gosec // G306: Test file permissions are fine
-		err = os.WriteFile(partialPath, data[:halfLen], 0o640)
+		err = os.WriteFile(partialPath, data[:halfLen], 0o600)
 		require.NoError(t, err)
 
 		// Extend file to full size (simulating sparse file)
-		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o640)
+		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o600)
 		require.NoError(t, err)
 		err = f.Truncate(int64(len(data)))
 		require.NoError(t, err)
@@ -717,10 +734,10 @@ func TestCache_ResumeDownload(t *testing.T) {
 
 		halfLen := len(data) / 2
 		//nolint:gosec // G306: Test file permissions are fine
-		err = os.WriteFile(partialPath, data[:halfLen], 0o640)
+		err = os.WriteFile(partialPath, data[:halfLen], 0o600)
 		require.NoError(t, err)
 
-		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o640)
+		f, err := os.OpenFile(partialPath, os.O_RDWR, 0o600)
 		require.NoError(t, err)
 		err = f.Truncate(int64(len(data)))
 		require.NoError(t, err)

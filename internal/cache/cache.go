@@ -24,9 +24,10 @@ const jsonExt = ".json"
 // Cache implements core.BlobSource with disk-based caching.
 // It stores complete blobs keyed by their SHA256 digest.
 type Cache struct {
-	path     string
-	fallback core.Registry
-	logger   *slog.Logger
+	path         string
+	fallback     core.Registry
+	logger       *slog.Logger
+	verifyOnRead bool
 
 	mu sync.RWMutex
 }
@@ -45,7 +46,7 @@ func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, erro
 		filepath.Join(path, "refs"),
 	}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0o750); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("create cache directory %s: %w", dir, err)
 		}
 	}
@@ -55,6 +56,11 @@ func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, erro
 		fallback: fallback,
 		logger:   logger,
 	}, nil
+}
+
+// SetVerifyOnRead controls whether cache hits are re-verified by digest.
+func (c *Cache) SetVerifyOnRead(enabled bool) {
+	c.verifyOnRead = enabled
 }
 
 // Open returns a BlobHandle for random access to the blob.
@@ -173,7 +179,7 @@ func (c *Cache) streamThrough(ctx context.Context, ref string, desc core.LayerDe
 	// Create temp file for caching
 	tmpPath := blobPath + ".tmp"
 	//nolint:gosec // G304: tmpPath is derived from blobPath which is derived from digest
-	f, err := os.Create(tmpPath)
+	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		reader.Close()
 		return nil, fmt.Errorf("create temp file: %w", err)
@@ -369,7 +375,7 @@ func (c *Cache) Clear() error {
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("remove %s: %w", dir, err)
 		}
-		if err := os.MkdirAll(dir, 0o750); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return fmt.Errorf("recreate %s: %w", dir, err)
 		}
 	}
@@ -420,6 +426,9 @@ func (c *Cache) selfHealEvict(digest string, err error) {
 // openCachedBlob opens a cached blob file as a BlobHandle.
 // Returns an error if the file is missing or has unexpected size (truncated/expanded).
 func (c *Cache) openCachedBlob(blobPath string, entry *Entry) (core.BlobHandle, error) {
+	if err := ensureCacheFile(blobPath); err != nil {
+		return nil, fmt.Errorf("open cached blob: %w", err)
+	}
 	//nolint:gosec // G304: blobPath is derived from digest, not user input
 	f, err := os.Open(blobPath)
 	if err != nil {
@@ -435,6 +444,13 @@ func (c *Cache) openCachedBlob(blobPath string, entry *Entry) (core.BlobHandle, 
 	if info.Size() != entry.Size {
 		f.Close()
 		return nil, fmt.Errorf("cached blob size mismatch: expected %d, got %d", entry.Size, info.Size())
+	}
+
+	if c.verifyOnRead {
+		if verifyErr := c.verifyFileDigest(f, entry.Digest); verifyErr != nil {
+			f.Close()
+			return nil, verifyErr
+		}
 	}
 
 	return &fileHandle{
@@ -448,6 +464,9 @@ func (c *Cache) openCachedBlob(blobPath string, entry *Entry) (core.BlobHandle, 
 // Returns an error if the file is missing or has unexpected size (truncated/expanded).
 // Unlike openCachedBlob, this returns the raw *os.File for streaming reads.
 func (c *Cache) openCachedBlobFile(blobPath string, entry *Entry) (*os.File, error) {
+	if err := ensureCacheFile(blobPath); err != nil {
+		return nil, fmt.Errorf("open cached blob: %w", err)
+	}
 	//nolint:gosec // G304: blobPath is derived from digest, not user input
 	f, err := os.Open(blobPath)
 	if err != nil {
@@ -465,7 +484,39 @@ func (c *Cache) openCachedBlobFile(blobPath string, entry *Entry) (*os.File, err
 		return nil, fmt.Errorf("cached blob size mismatch: expected %d, got %d", entry.Size, info.Size())
 	}
 
+	if c.verifyOnRead {
+		if verifyErr := c.verifyFileDigest(f, entry.Digest); verifyErr != nil {
+			f.Close()
+			return nil, verifyErr
+		}
+	}
+
 	return f, nil
+}
+
+func (c *Cache) verifyFileDigest(f *os.File, expected string) error {
+	if expected == "" {
+		return errors.New("missing expected digest")
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("seek cached blob: %w", err)
+	}
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, f); err != nil {
+		return fmt.Errorf("hash cached blob: %w", err)
+	}
+
+	computed := "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+	if computed != expected {
+		return fmt.Errorf("cached blob digest mismatch: expected %s, got %s", expected, computed)
+	}
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("seek cached blob: %w", err)
+	}
+
+	return nil
 }
 
 // downloadBlob downloads a blob from the registry and caches it.
@@ -512,7 +563,7 @@ func (c *Cache) fullDownload(ctx context.Context, ref string, desc core.LayerDes
 	// Write to temp file first
 	tmpPath := blobPath + ".tmp"
 	//nolint:gosec // G304: tmpPath is derived from blobPath which is derived from digest
-	f, err := os.Create(tmpPath)
+	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
@@ -581,8 +632,11 @@ func (c *Cache) fullDownload(ctx context.Context, ref string, desc core.LayerDes
 // resumeDownload attempts to resume a partial download.
 func (c *Cache) resumeDownload(ctx context.Context, ref string, desc core.LayerDescriptor, partialPath, entryPath string, entry *Entry) error {
 	// Open the partial file
+	if err := ensureCacheFile(partialPath); err != nil {
+		return fmt.Errorf("open partial file: %w", err)
+	}
 	//nolint:gosec // G304: partialPath is derived from digest, not user input
-	f, err := os.OpenFile(partialPath, os.O_RDWR, 0o640)
+	f, err := os.OpenFile(partialPath, os.O_RDWR, 0o600)
 	if err != nil {
 		return fmt.Errorf("open partial file: %w", err)
 	}
@@ -725,6 +779,9 @@ func (c *Cache) savePartialProgress(entryPath string, entry *Entry, ranges []Ran
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and lazy loading starts fresh (self-healing).
 func (c *Cache) OpenLazy(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
+	if c.verifyOnRead {
+		return nil, errors.New("cache verify on read is incompatible with lazy loading")
+	}
 	entry, blobPath, entryPath := c.LoadCompleteEntry(desc.Digest)
 	if entry != nil {
 		c.logger.Debug("lazy cache hit (complete)", "digest", desc.Digest)
@@ -775,8 +832,11 @@ func (c *Cache) openLazyHandle(
 
 	// Open or create the partial file
 	partialPath := blobPath + ".partial"
+	if checkErr := ensureCacheFileIfExists(partialPath); checkErr != nil {
+		return nil, fmt.Errorf("open partial file: %w", checkErr)
+	}
 	//nolint:gosec // G304: partialPath is derived from digest, not user input
-	f, err := os.OpenFile(partialPath, os.O_RDWR|os.O_CREATE, 0o640)
+	f, err := os.OpenFile(partialPath, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open partial file: %w", err)
 	}

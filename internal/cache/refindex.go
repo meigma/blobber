@@ -36,6 +36,9 @@ func (c *Cache) refPath(ref string) string {
 
 // loadRefEntry loads a reference index entry from disk.
 func loadRefEntry(path string) (*RefEntry, error) {
+	if err := ensureCacheFile(path); err != nil {
+		return nil, err
+	}
 	//nolint:gosec // G304: path is derived from ref hash, not user input
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -54,7 +57,7 @@ func loadRefEntry(path string) (*RefEntry, error) {
 // Uses write-to-temp + rename + fsync for durability.
 func saveRefEntry(path string, entry *RefEntry) error {
 	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("create refs directory: %w", err)
 	}
 
@@ -66,7 +69,7 @@ func saveRefEntry(path string, entry *RefEntry) error {
 	// Write to temp file
 	tmpPath := path + ".tmp"
 	//nolint:gosec // G304: tmpPath is derived from ref hash, not user input
-	f, err := os.Create(tmpPath)
+	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
