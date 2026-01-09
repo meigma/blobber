@@ -365,6 +365,27 @@ func (c *Client) verifyManifestSignature(ctx context.Context, ref, manifestDiges
 	return ErrSignatureInvalid
 }
 
+// DefaultTagListTTL is the default TTL for cached tag lists.
+// Tag lists are cached for a short duration to speed up repeated auto-complete queries
+// while ensuring reasonably fresh data.
+const DefaultTagListTTL = 30 * time.Second
+
+// ListTags returns all tags for a repository.
+// The repository should be in the format "registry/namespace/repo" (e.g., "ghcr.io/org/repo").
+//
+// If a cache is configured, tag lists are cached using the cache TTL (or DefaultTagListTTL
+// if no TTL is set). This speeds up subsequent calls like shell auto-completion.
+func (c *Client) ListTags(ctx context.Context, repository string) ([]string, error) {
+	if c.cache != nil {
+		ttl := c.cacheTTL
+		if ttl <= 0 {
+			ttl = DefaultTagListTTL
+		}
+		return c.cache.ListTags(ctx, repository, ttl)
+	}
+	return c.registry.ListTags(ctx, repository)
+}
+
 // digestReference constructs a digest reference from a tag reference.
 // Example: "ghcr.io/org/repo:tag" + "sha256:abc..." -> "ghcr.io/org/repo@sha256:abc..."
 func digestReference(ref, manifestDigest string) string {

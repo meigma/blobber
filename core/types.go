@@ -221,6 +221,10 @@ type Registry interface {
 	// FetchManifest fetches the raw manifest bytes for a reference.
 	// Returns the manifest JSON and its digest.
 	FetchManifest(ctx context.Context, ref string) ([]byte, string, error)
+
+	// ListTags returns all tags for a repository.
+	// The repository should be in the format "registry/namespace/repo" (e.g., "ghcr.io/org/repo").
+	ListTags(ctx context.Context, repository string) ([]string, error)
 }
 
 // ArchiveBuilder creates eStargz blobs from files.

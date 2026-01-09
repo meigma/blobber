@@ -49,6 +49,12 @@ const (
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	// Command groups for organized help output
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "core", Title: "Core Commands:"},
+		&cobra.Group{ID: "management", Title: "Management Commands:"},
+	)
+
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
 	rootCmd.PersistentFlags().Bool("insecure", false, "Allow insecure registry connections")

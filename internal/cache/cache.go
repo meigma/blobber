@@ -44,6 +44,7 @@ func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, erro
 		filepath.Join(path, "blobs", "sha256"),
 		filepath.Join(path, "entries", "sha256"),
 		filepath.Join(path, "refs"),
+		filepath.Join(path, "tags"),
 	}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -369,6 +370,7 @@ func (c *Cache) Clear() error {
 		filepath.Join(c.path, "blobs", "sha256"),
 		filepath.Join(c.path, "entries", "sha256"),
 		filepath.Join(c.path, "refs"),
+		filepath.Join(c.path, "tags"),
 	}
 
 	for _, dir := range dirs {

@@ -13,8 +13,9 @@ import (
 var pushCompression string
 
 var pushCmd = &cobra.Command{
-	Use:   "push <directory> <reference>",
-	Short: "Push a directory to an OCI registry",
+	Use:     "push <directory> <reference>",
+	Short:   "Push a directory to an OCI registry",
+	GroupID: "core",
 	Long: `Push uploads a directory of files to an OCI registry as an eStargz image.
 
 Use --sign to sign the artifact with Sigstore (keyless). This requires OIDC

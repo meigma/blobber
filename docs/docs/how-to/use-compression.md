@@ -59,10 +59,10 @@ blobber push ./data ghcr.io/myorg/data:v1 --compression zstd
 The compression algorithm is stored in the image. To verify:
 
 ```bash
-blobber list ghcr.io/myorg/data:v1
+blobber ls ghcr.io/myorg/data:v1
 ```
 
-Both algorithms produce valid eStargz images that work with `list`, `cat`, and `pull`.
+Both algorithms produce valid eStargz images that work with `ls`, `cat`, and `pull`.
 
 ## Notes
 

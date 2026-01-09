@@ -69,12 +69,12 @@ blobber cat ghcr.io/myorg/config:v1 config.json | jq .
 
 ## Notes
 
-- Path must match exactly as shown in `blobber list`
+- Path must match exactly as shown in `blobber ls`
 - Binary files are output as-is
 - No trailing newline is added
 
 ## See Also
 
-- [blobber list](/docs/reference/cli/list) - List available files
+- [blobber ls](/docs/reference/cli/list) - List available files
 - [blobber pull](/docs/reference/cli/pull) - Download all files
 - [How to Extract Single Files](/docs/how-to/extract-single-file) - Practical examples

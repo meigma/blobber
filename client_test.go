@@ -199,6 +199,10 @@ func (m *mockVerifyRegistry) FetchManifest(_ context.Context, ref string) ([]byt
 	return m.indexBytes, m.indexDigest, nil
 }
 
+func (m *mockVerifyRegistry) ListTags(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
 // mockTestVerifier is a test verifier that accepts specific signatures.
 type mockTestVerifier struct {
 	validSignatures map[string]bool // digest -> signature data -> valid

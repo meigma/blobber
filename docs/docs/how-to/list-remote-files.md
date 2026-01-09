@@ -16,7 +16,7 @@ Inspect the contents of a remote image without downloading the full blob.
 List files in an image:
 
 ```bash
-blobber list ghcr.io/myorg/config:v1
+blobber ls ghcr.io/myorg/config:v1
 ```
 
 Output:
@@ -32,7 +32,7 @@ config/server.yaml
 Add `-l` for file sizes and permissions:
 
 ```bash
-blobber list -l ghcr.io/myorg/config:v1
+blobber ls -l ghcr.io/myorg/config:v1
 ```
 
 Output:
@@ -47,11 +47,11 @@ Columns: path, size (bytes), mode (octal).
 
 ## Using the Alias
 
-`ls` is an alias for `list`:
+`list` is an alias for `ls` (for backwards compatibility):
 
 ```bash
-blobber ls ghcr.io/myorg/config:v1
-blobber ls -l ghcr.io/myorg/config:v1
+blobber list ghcr.io/myorg/config:v1
+blobber list -l ghcr.io/myorg/config:v1
 ```
 
 ## Scripting Examples
@@ -59,7 +59,7 @@ blobber ls -l ghcr.io/myorg/config:v1
 ### Check if a file exists
 
 ```bash
-if blobber list ghcr.io/myorg/config:v1 | grep -q "app.yaml"; then
+if blobber ls ghcr.io/myorg/config:v1 | grep -q "app.yaml"; then
   echo "File exists"
 fi
 ```
@@ -67,19 +67,19 @@ fi
 ### Count files
 
 ```bash
-blobber list ghcr.io/myorg/config:v1 | wc -l
+blobber ls ghcr.io/myorg/config:v1 | wc -l
 ```
 
 ### Get total size
 
 ```bash
-blobber list -l ghcr.io/myorg/config:v1 | awk '{sum += $2} END {print sum " bytes"}'
+blobber ls -l ghcr.io/myorg/config:v1 | awk '{sum += $2} END {print sum " bytes"}'
 ```
 
 ### Find large files
 
 ```bash
-blobber list -l ghcr.io/myorg/data:v1 | awk '$2 > 1000000 {print}'
+blobber ls -l ghcr.io/myorg/data:v1 | awk '$2 > 1000000 {print}'
 ```
 
 ## Why This Is Efficient
@@ -90,6 +90,6 @@ For a 1GB image, listing might download only a few KB.
 
 ## See Also
 
-- [CLI Reference: list](/docs/reference/cli/list)
+- [CLI Reference: ls](/docs/reference/cli/list)
 - [How to Extract Single Files](/docs/how-to/extract-single-file)
 - [About eStargz](/docs/explanation/about-estargz)

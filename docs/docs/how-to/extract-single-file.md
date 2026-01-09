@@ -21,7 +21,13 @@ blobber cat ghcr.io/myorg/config:v1 app.yaml
 
 ## Save to Local File
 
-Redirect output to save:
+Use `cp` to copy directly to a file:
+
+```bash
+blobber cp ghcr.io/myorg/config:v1 app.yaml ./local-app.yaml
+```
+
+Or redirect `cat` output:
 
 ```bash
 blobber cat ghcr.io/myorg/config:v1 app.yaml > local-app.yaml
@@ -29,7 +35,7 @@ blobber cat ghcr.io/myorg/config:v1 app.yaml > local-app.yaml
 
 ## Extract Nested Files
 
-Use the full path as shown in `blobber list`:
+Use the full path as shown in `blobber ls`:
 
 ```bash
 blobber cat ghcr.io/myorg/config:v1 config/database.yaml
@@ -66,8 +72,8 @@ blobber cat ghcr.io/myorg/config:v1 server.yaml | grep port
 For multiple specific files, run multiple commands:
 
 ```bash
-blobber cat ghcr.io/myorg/config:v1 app.yaml > app.yaml
-blobber cat ghcr.io/myorg/config:v1 database.yaml > database.yaml
+blobber cp ghcr.io/myorg/config:v1 app.yaml ./app.yaml
+blobber cp ghcr.io/myorg/config:v1 database.yaml ./database.yaml
 ```
 
 For many files, consider using `blobber pull` instead.
@@ -77,7 +83,7 @@ For many files, consider using `blobber pull` instead.
 Binary files work the same way:
 
 ```bash
-blobber cat ghcr.io/myorg/assets:v1 logo.png > logo.png
+blobber cp ghcr.io/myorg/assets:v1 logo.png ./logo.png
 ```
 
 ## Find the Correct Path
@@ -85,7 +91,7 @@ blobber cat ghcr.io/myorg/assets:v1 logo.png > logo.png
 If you're unsure of the exact path:
 
 ```bash
-blobber list ghcr.io/myorg/config:v1 | grep database
+blobber ls ghcr.io/myorg/config:v1 | grep database
 ```
 
 Then use the exact path shown.
@@ -99,5 +105,6 @@ For a 1GB image, extracting a 1KB config file downloads approximately 1KB.
 ## See Also
 
 - [CLI Reference: cat](/docs/reference/cli/cat)
+- [CLI Reference: cp](/docs/reference/cli/cp)
 - [How to List Remote Files](/docs/how-to/list-remote-files)
 - [About eStargz](/docs/explanation/about-estargz)

@@ -14,8 +14,9 @@ import (
 var pullOverwrite bool
 
 var pullCmd = &cobra.Command{
-	Use:   "pull <reference> <directory>",
-	Short: "Pull an image from an OCI registry",
+	Use:     "pull <reference> <directory>",
+	Short:   "Pull an image from an OCI registry",
+	GroupID: "core",
 	Long: `Pull downloads all files from an OCI registry image to a local directory.
 
 By default, files are merged into the destination directory. If a file already

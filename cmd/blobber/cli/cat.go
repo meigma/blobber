@@ -8,8 +8,9 @@ import (
 )
 
 var catCmd = &cobra.Command{
-	Use:   "cat <reference> <path>",
-	Short: "Output a file from an OCI image",
+	Use:     "cat <reference> <path>",
+	Short:   "Output a file from an OCI image",
+	GroupID: "core",
 	Long: `Cat outputs the contents of a single file from an OCI registry image.
 
 This leverages eStargz format to download only the requested file.

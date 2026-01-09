@@ -26,7 +26,7 @@ Enter your username and token when prompted.
 ### Step 2: Verify with Blobber
 
 ```bash
-blobber list ghcr.io/your-org/your-repo:tag
+blobber ls ghcr.io/your-org/your-repo:tag
 ```
 
 If authentication works, you'll see the file listing.
