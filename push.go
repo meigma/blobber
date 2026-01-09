@@ -3,12 +3,14 @@ package blobber
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"time"
 
 	"github.com/opencontainers/go-digest"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/progress"
 )
 
 // Push uploads files from src to the given image reference.
@@ -30,6 +32,18 @@ func (c *Client) Push(ctx context.Context, ref string, src fs.FS, opts ...PushOp
 	}
 	defer result.Blob.Close()
 
+	// Wrap blob reader for progress tracking if callback provided
+	var blobReader io.Reader = result.Blob
+	if cfg.progress != nil {
+		blobReader = progress.NewReader(result.Blob, result.BlobSize, func(transferred, total int64) {
+			cfg.progress(ProgressEvent{
+				Operation:        "push",
+				BytesTransferred: transferred,
+				TotalBytes:       total,
+			})
+		})
+	}
+
 	// Push to registry
 	regOpts := RegistryPushOptions{
 		MediaType:   cfg.mediaType,
@@ -40,7 +54,7 @@ func (c *Client) Push(ctx context.Context, ref string, src fs.FS, opts ...PushOp
 		BlobSize:    result.BlobSize,
 	}
 
-	manifestDigest, err := c.registry.Push(ctx, ref, result.Blob, &regOpts)
+	manifestDigest, err := c.registry.Push(ctx, ref, blobReader, &regOpts)
 	if err != nil {
 		return "", fmt.Errorf("push %s: %w", ref, err)
 	}

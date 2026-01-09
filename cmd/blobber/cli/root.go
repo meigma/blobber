@@ -60,6 +60,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("insecure", false, "Allow insecure registry connections")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose debug logging")
 	rootCmd.PersistentFlags().Bool("no-cache", false, "Bypass cache for this request")
+	rootCmd.PersistentFlags().String("progress", "auto", "Progress bar mode: auto, tty, or plain")
 	rootCmd.PersistentFlags().Duration("cache-ttl", 0, "TTL for cache validation (e.g., 5m, 1h)")
 	rootCmd.PersistentFlags().Bool("cache-verify", false, "Re-verify cached blobs on read (slower, defends against cache poisoning)")
 
@@ -85,6 +86,8 @@ func init() {
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	//nolint:errcheck
 	viper.BindPFlag("no-cache", rootCmd.PersistentFlags().Lookup("no-cache"))
+	//nolint:errcheck
+	viper.BindPFlag("progress", rootCmd.PersistentFlags().Lookup("progress"))
 	//nolint:errcheck
 	viper.BindPFlag("cache.ttl", rootCmd.PersistentFlags().Lookup("cache-ttl"))
 	//nolint:errcheck

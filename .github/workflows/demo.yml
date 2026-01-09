@@ -1,0 +1,39 @@
+name: Generate Demo GIF
+
+on:
+  push:
+    paths:
+      - 'demo.tape'
+    branches:
+      - master
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build blobber
+        run: go build -o blobber ./cmd/blobber
+
+      - name: Add blobber to PATH
+        run: echo "$PWD" >> $GITHUB_PATH
+
+      - uses: charmbracelet/vhs-action@v2
+        with:
+          path: demo.tape
+
+      - name: Move GIF to static
+        run: mv demo.gif docs/static/img/demo.gif
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: regenerate demo GIF"
+          file_pattern: docs/static/img/demo.gif

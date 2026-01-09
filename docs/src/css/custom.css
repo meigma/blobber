@@ -158,7 +158,8 @@
   font-size: 0.85rem;
 }
 
-.hero-install__commands code {
+.hero-install__commands code,
+.hero-install code {
   padding: 0.45rem 0.75rem;
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.65);
@@ -279,6 +280,23 @@
 .hero-output {
   font-size: 0.95rem;
   color: rgba(226, 232, 240, 0.8);
+}
+
+.hero-demo {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.7);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.4);
+  backdrop-filter: blur(6px);
+}
+
+.hero-demo__gif {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 17px;
 }
 
 /* Sections */

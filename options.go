@@ -28,11 +28,13 @@ type pushConfig struct {
 	annotations map[string]string
 	mediaType   string
 	compression Compression
+	progress    ProgressCallback
 }
 
 // pullConfig holds configuration for Pull operations.
 type pullConfig struct {
-	limits ExtractLimits
+	limits   ExtractLimits
+	progress ProgressCallback
 }
 
 // WithAnnotations sets OCI annotations on the pushed image.
@@ -92,6 +94,22 @@ func WithLogger(logger *slog.Logger) ClientOption {
 func WithMediaType(mt string) PushOption {
 	return func(c *pushConfig) {
 		c.mediaType = mt
+	}
+}
+
+// WithPushProgress sets a callback to receive progress updates during push.
+// The callback receives cumulative bytes uploaded to the registry.
+func WithPushProgress(callback ProgressCallback) PushOption {
+	return func(c *pushConfig) {
+		c.progress = callback
+	}
+}
+
+// WithPullProgress sets a callback to receive progress updates during pull.
+// The callback receives cumulative bytes downloaded from the registry.
+func WithPullProgress(callback ProgressCallback) PullOption {
+	return func(c *pullConfig) {
+		c.progress = callback
 	}
 }
 
