@@ -1,0 +1,111 @@
+# Test Sigstore signature verification
+
+# Generate trusted root for all tests
+sigstore-gen-trusted-root trusted_root.json
+exists trusted_root.json
+
+# ============================================================
+# Test 1: Successful verification with correct identity
+# ============================================================
+
+# Push signed artifact
+sigstore-push-signed testdata $REGISTRY/cli-test/signed:v1 test@example.com https://issuer.example.com
+stdout 'sha256:'
+
+# Pull with verification should succeed
+exec blobber pull --insecure --verify --trusted-root trusted_root.json --verify-issuer https://issuer.example.com --verify-subject test@example.com $REGISTRY/cli-test/signed:v1 output1
+! stderr .
+
+# Verify files were pulled
+exists output1/config.yaml
+
+# ============================================================
+# Test 2: Verification without identity check (any signer)
+# ============================================================
+
+# Pull with verification but no identity requirement
+exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/signed:v1 output2
+! stderr .
+exists output2/config.yaml
+
+# ============================================================
+# Test 3: Failed verification - invalid signature bundle
+# ============================================================
+
+# Push artifact with invalid signature
+sigstore-push-invalid-sig testdata $REGISTRY/cli-test/invalid-sig:v1
+stdout 'sha256:'
+
+# Pull with verification should fail
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/invalid-sig:v1 output3
+stderr 'signature verification failed'
+
+# ============================================================
+# Test 4: Failed verification - wrong identity
+# ============================================================
+
+# Push artifact signed with different identity
+sigstore-push-wrong-identity testdata $REGISTRY/cli-test/wrong-id:v1
+stdout 'sha256:'
+
+# Pull with verification requiring specific identity should fail
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json --verify-issuer https://expected.example.com --verify-subject expected@example.com $REGISTRY/cli-test/wrong-id:v1 output4
+stderr 'signature verification failed'
+
+# ============================================================
+# Test 5: Failed verification - tampered content
+# ============================================================
+
+# Push artifact with signature over different content
+sigstore-push-tampered testdata $REGISTRY/cli-test/tampered:v1 test@example.com https://issuer.example.com
+stdout 'sha256:'
+
+# Pull with verification should fail (signature doesn't match manifest)
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/tampered:v1 output5
+stderr 'signature verification failed'
+
+# ============================================================
+# Test 6: Pull without --verify flag (should succeed)
+# ============================================================
+
+# Pull signed artifact without verification
+exec blobber pull --insecure $REGISTRY/cli-test/signed:v1 output6
+! stderr .
+exists output6/config.yaml
+
+# ============================================================
+# Test 7: Verification on unsigned artifact
+# ============================================================
+
+# Push unsigned artifact
+exec blobber push --insecure testdata $REGISTRY/cli-test/unsigned:v1
+stdout 'sha256:'
+
+# Pull with verification should fail (no signature)
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/unsigned:v1 output7
+stderr 'no signature found'
+
+# ============================================================
+# Test 8: Key-based signing with --sign-key
+# ============================================================
+
+# Generate a private key for signing
+sigstore-gen-key signing-key.pem
+exists signing-key.pem
+
+# Push with key-based signing (no Fulcio, just local key)
+# Note: This creates a signature but without Fulcio certificate,
+# so it won't be verifiable with the public Sigstore infrastructure.
+# We test that the signing workflow completes successfully.
+exec blobber push --insecure --sign --sign-key signing-key.pem testdata $REGISTRY/cli-test/key-signed:v1
+stdout 'sha256:'
+
+# The artifact should be pullable without verification
+exec blobber pull --insecure $REGISTRY/cli-test/key-signed:v1 output8
+! stderr .
+exists output8/config.yaml
+
+-- testdata/config.yaml --
+setting: value
+-- testdata/data.txt --
+some data content

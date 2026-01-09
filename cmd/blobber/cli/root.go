@@ -57,7 +57,9 @@ func init() {
 	rootCmd.PersistentFlags().Duration("cache-ttl", 0, "TTL for cache validation (e.g., 5m, 1h)")
 
 	// Signing flags
-	rootCmd.PersistentFlags().Bool("sign", false, "Sign artifacts using Sigstore (keyless)")
+	rootCmd.PersistentFlags().Bool("sign", false, "Sign artifacts using Sigstore")
+	rootCmd.PersistentFlags().String("sign-key", "", "Path to private key for signing (PEM format)")
+	rootCmd.PersistentFlags().String("sign-key-pass", "", "Password for encrypted private key")
 	rootCmd.PersistentFlags().String("fulcio-url", defaultFulcioURL, "Fulcio CA URL for keyless signing")
 	rootCmd.PersistentFlags().String("rekor-url", defaultRekorURL, "Rekor transparency log URL")
 
@@ -78,6 +80,10 @@ func init() {
 	viper.BindPFlag("cache.ttl", rootCmd.PersistentFlags().Lookup("cache-ttl"))
 	//nolint:errcheck
 	viper.BindPFlag("sign", rootCmd.PersistentFlags().Lookup("sign"))
+	//nolint:errcheck
+	viper.BindPFlag("sign-key", rootCmd.PersistentFlags().Lookup("sign-key"))
+	//nolint:errcheck
+	viper.BindPFlag("sign-key-pass", rootCmd.PersistentFlags().Lookup("sign-key-pass"))
 	//nolint:errcheck
 	viper.BindPFlag("fulcio-url", rootCmd.PersistentFlags().Lookup("fulcio-url"))
 	//nolint:errcheck
@@ -196,6 +202,33 @@ func newClient() (*blobber.Client, error) {
 
 // createSigner creates a sigstore signer with configured options.
 func createSigner() (blobber.Signer, error) {
+	keyFile := viper.GetString("sign-key")
+
+	// Key-based signing (no Fulcio needed)
+	if keyFile != "" {
+		//nolint:gosec // G304: keyFile is user-provided via CLI flag, intentional
+		keyData, err := os.ReadFile(keyFile)
+		if err != nil {
+			return nil, fmt.Errorf("read key file: %w", err)
+		}
+
+		var password []byte
+		if pass := viper.GetString("sign-key-pass"); pass != "" {
+			password = []byte(pass)
+		}
+
+		var opts []sigstore.SignerOption
+		opts = append(opts, sigstore.WithPrivateKeyPEM(keyData, password))
+
+		// Optionally add Rekor for transparency
+		if rekorURL := viper.GetString("rekor-url"); rekorURL != "" {
+			opts = append(opts, sigstore.WithRekor(rekorURL))
+		}
+
+		return sigstore.NewSigner(opts...)
+	}
+
+	// Keyless signing (default)
 	fulcioURL := viper.GetString("fulcio-url")
 	rekorURL := viper.GetString("rekor-url")
 

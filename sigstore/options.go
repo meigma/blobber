@@ -1,6 +1,7 @@
 package sigstore
 
 import (
+	"crypto"
 	"log/slog"
 
 	"github.com/sigstore/sigstore-go/pkg/root"
@@ -44,6 +45,39 @@ func WithRekor(baseURL string) SignerOption {
 	return func(s *Signer) error {
 		s.opts.TransparencyLogs = append(s.opts.TransparencyLogs,
 			sign.NewRekor(&sign.RekorOptions{BaseURL: baseURL}))
+		return nil
+	}
+}
+
+// WithPrivateKey uses the provided crypto.Signer for signing.
+// This is the core option for key-based (non-keyless) signing.
+// The key type is automatically detected (ECDSA, RSA, or Ed25519).
+func WithPrivateKey(key crypto.Signer) SignerOption {
+	return func(s *Signer) error {
+		kp, err := NewStaticKeypair(key)
+		if err != nil {
+			return err
+		}
+		s.keypair = kp
+		return nil
+	}
+}
+
+// WithPrivateKeyPEM parses a PEM-encoded private key and uses it for signing.
+// Pass nil password for unencrypted keys.
+// Supports PKCS8, PKCS1 (RSA), and SEC1 (EC) formats.
+// This is a convenience wrapper around WithPrivateKey.
+func WithPrivateKeyPEM(pemData, password []byte) SignerOption {
+	return func(s *Signer) error {
+		key, err := ParsePrivateKeyPEM(pemData, password)
+		if err != nil {
+			return err
+		}
+		kp, err := NewStaticKeypair(key)
+		if err != nil {
+			return err
+		}
+		s.keypair = kp
 		return nil
 	}
 }
