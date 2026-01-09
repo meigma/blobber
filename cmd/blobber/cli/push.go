@@ -24,8 +24,9 @@ Examples:
   blobber push ./config ghcr.io/org/config:v1
   blobber push ./data ghcr.io/org/data:latest --compression zstd
   blobber push ./data ghcr.io/org/data:latest --sign`,
-	Args: cobra.ExactArgs(2),
-	RunE: runPush,
+	Args:              cobra.ExactArgs(2),
+	RunE:              runPush,
+	ValidArgsFunction: completePushArgs,
 }
 
 func init() {

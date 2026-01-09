@@ -30,8 +30,9 @@ Examples:
   blobber pull ghcr.io/org/data:latest ./data --overwrite
   blobber pull ghcr.io/org/data:latest ./data --verify --verify-issuer https://accounts.google.com --verify-subject user@example.com
   blobber pull ghcr.io/org/data:latest ./data --verify --verify-unsafe`,
-	Args: cobra.ExactArgs(2),
-	RunE: runPull,
+	Args:              cobra.ExactArgs(2),
+	RunE:              runPull,
+	ValidArgsFunction: completePullArgs,
 }
 
 func init() {
