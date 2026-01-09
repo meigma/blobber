@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/opencontainers/go-digest"
@@ -215,15 +216,29 @@ func (c *Client) hasCachedBlob(desc LayerDescriptor) bool {
 }
 
 // verifySignature verifies that at least one valid signature exists for the image.
+// For multi-arch images, this resolves to the platform-specific manifest and verifies
+// signatures attached to that manifest (not the index).
 func (c *Client) verifySignature(ctx context.Context, ref string) error {
-	// Fetch the manifest bytes and digest
-	manifestBytes, manifestDigest, err := c.registry.FetchManifest(ctx, ref)
+	// Resolve to the platform-specific manifest for multi-arch images.
+	// This ensures we verify signatures attached to the actual platform manifest,
+	// not the OCI index which may have no signatures.
+	layerDesc, err := c.registry.ResolveLayer(ctx, ref)
 	if err != nil {
-		return fmt.Errorf("fetch manifest for %s: %w", ref, err)
+		return fmt.Errorf("resolve %s: %w", ref, err)
 	}
 
+	manifestDigest := layerDesc.ManifestDigest
 	if manifestDigest == "" {
 		return fmt.Errorf("no manifest digest for %s", ref)
+	}
+
+	// Construct a digest reference to fetch the platform manifest bytes.
+	// For multi-arch, this is the platform manifest; for single-arch, it's the same manifest.
+	digestRef := digestReference(ref, manifestDigest)
+
+	manifestBytes, _, err := c.registry.FetchManifest(ctx, digestRef)
+	if err != nil {
+		return fmt.Errorf("fetch manifest for %s: %w", ref, err)
 	}
 
 	// Fetch signature referrers
@@ -272,4 +287,26 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 		return fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
 	}
 	return ErrSignatureInvalid
+}
+
+// digestReference constructs a digest reference from a tag reference.
+// Example: "ghcr.io/org/repo:tag" + "sha256:abc..." -> "ghcr.io/org/repo@sha256:abc..."
+func digestReference(ref, manifestDigest string) string {
+	// Find the repository part (everything before : or @)
+	var repo string
+	if idx := strings.LastIndex(ref, "@"); idx != -1 {
+		repo = ref[:idx]
+	} else if idx := strings.LastIndex(ref, ":"); idx != -1 {
+		// Handle port numbers by finding the last : after the last /
+		lastSlash := strings.LastIndex(ref, "/")
+		if lastSlash != -1 && idx > lastSlash {
+			repo = ref[:idx]
+		} else {
+			// No tag, just use the whole ref
+			repo = ref
+		}
+	} else {
+		repo = ref
+	}
+	return repo + "@" + manifestDigest
 }
