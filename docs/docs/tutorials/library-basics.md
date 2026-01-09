@@ -400,6 +400,73 @@ func run() error {
 }
 ```
 
+## Step 9: Sign and Verify (Optional)
+
+For production use, add signing and verification. First, import the sigstore package:
+
+```bash
+go get github.com/meigma/blobber/sigstore@latest
+```
+
+### Sign When Pushing
+
+```go
+import "github.com/meigma/blobber/sigstore"
+
+// Create a keyless signer (opens browser for OIDC)
+signer, err := sigstore.NewSigner(
+    sigstore.WithEphemeralKey(),
+    sigstore.WithFulcio("https://fulcio.sigstore.dev"),
+    sigstore.WithRekor("https://rekor.sigstore.dev"),
+)
+if err != nil {
+    return err
+}
+
+// Create client with signer
+client, err := blobber.NewClient(
+    blobber.WithSigner(signer),
+)
+if err != nil {
+    return err
+}
+
+// Push will automatically sign
+digest, err := client.Push(ctx, ref, files)
+```
+
+### Verify When Opening
+
+```go
+// Create verifier with identity requirement
+verifier, err := sigstore.NewVerifier(
+    sigstore.WithIdentity(
+        "https://accounts.google.com",   // OIDC issuer
+        "developer@company.com",         // expected identity
+    ),
+)
+if err != nil {
+    return err
+}
+
+// Create client with verifier
+client, err := blobber.NewClient(
+    blobber.WithVerifier(verifier),
+)
+if err != nil {
+    return err
+}
+
+// OpenImage will verify before returning
+img, err := client.OpenImage(ctx, ref)
+if errors.Is(err, blobber.ErrNoSignature) {
+    return fmt.Errorf("artifact is not signed")
+}
+if errors.Is(err, blobber.ErrSignatureInvalid) {
+    return fmt.Errorf("signature verification failed")
+}
+```
+
 ## What We Learned
 
 - `blobber.NewClient()` creates a client with default settings
@@ -410,9 +477,14 @@ func run() error {
 - `img.Walk(fn)` walks all files
 - `client.Pull(ctx, ref, dir)` downloads everything
 - Sentinel errors like `ErrNotFound` enable precise error handling
+- `WithSigner` adds automatic signing on push
+- `WithVerifier` adds automatic verification on open/pull
 
 ## Next Steps
 
 - [Library Reference: Client](/docs/reference/library/client) - All client methods and options
 - [Library Reference: Options](/docs/reference/library/options) - Configure authentication, caching, and more
+- [Library Reference: Sigstore](/docs/reference/library/sigstore) - Signing and verification options
+- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Detailed signing guide
 - [About eStargz](/docs/explanation/about-estargz) - Why selective retrieval is efficient
+- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing

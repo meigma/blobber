@@ -156,7 +156,34 @@ export XDG_CACHE_HOME=/custom/cache
 blobber cache info   # Shows /custom/cache/blobber
 ```
 
+## Configure Signing Defaults
+
+Set default Sigstore URLs via environment variables:
+
+```bash
+export BLOBBER_FULCIO_URL=https://fulcio.internal.example.com
+export BLOBBER_REKOR_URL=https://rekor.internal.example.com
+```
+
+Or via command-line flags:
+
+```bash
+blobber push --sign --fulcio-url https://fulcio.internal --rekor-url https://rekor.internal ./config ghcr.io/org/config:v1
+```
+
+## Configure Verification Defaults
+
+Set default verification options via environment variables:
+
+```bash
+export BLOBBER_VERIFY_ISSUER=https://accounts.google.com
+export BLOBBER_VERIFY_SUBJECT=ci@company.com
+export BLOBBER_TRUSTED_ROOT=/path/to/trusted-root.json
+```
+
 ## See Also
 
 - [CLI Reference: config](/docs/reference/cli/config)
 - [How to Manage Cache](/docs/how-to/manage-cache)
+- [How to Sign Artifacts](/docs/how-to/sign-artifacts)
+- [How to Verify Signatures](/docs/how-to/verify-signatures)

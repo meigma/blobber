@@ -198,6 +198,71 @@ Enables background downloading of complete blobs during lazy loading.
 
 ---
 
+### WithSigner
+
+```go
+func WithSigner(s Signer) ClientOption
+```
+
+Configures signing for push operations. When set, `Push` will sign the artifact after uploading and store the signature as an OCI referrer.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `s` | `Signer` | Signer implementation (e.g., from `sigstore` package) |
+
+**Example:**
+
+```go
+import "github.com/meigma/blobber/sigstore"
+
+signer, _ := sigstore.NewSigner(
+    sigstore.WithEphemeralKey(),
+    sigstore.WithFulcio("https://fulcio.sigstore.dev"),
+    sigstore.WithRekor("https://rekor.sigstore.dev"),
+)
+
+client, err := blobber.NewClient(
+    blobber.WithSigner(signer),
+)
+```
+
+---
+
+### WithVerifier
+
+```go
+func WithVerifier(v Verifier) ClientOption
+```
+
+Configures verification for pull and open operations. When set, `Pull` and `OpenImage` will verify signatures before returning data.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `v` | `Verifier` | Verifier implementation (e.g., from `sigstore` package) |
+
+**Returns:**
+- `ErrNoSignature` if no signature is found
+- `ErrSignatureInvalid` if verification fails
+
+**Example:**
+
+```go
+import "github.com/meigma/blobber/sigstore"
+
+verifier, _ := sigstore.NewVerifier(
+    sigstore.WithIdentity(
+        "https://accounts.google.com",
+        "developer@company.com",
+    ),
+)
+
+client, err := blobber.NewClient(
+    blobber.WithVerifier(verifier),
+)
+```
+
+---
+
 ## Push Options
 
 Options passed to `Client.Push()`.
@@ -308,3 +373,6 @@ err := client.Pull(ctx, ref, destDir,
 
 - [Client](/docs/reference/library/client) - Client methods
 - [Errors](/docs/reference/library/errors) - Error handling
+- [Sigstore Package](/docs/reference/library/sigstore) - Signer and Verifier implementations
+- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Signing guide
+- [How to Verify Signatures](/docs/how-to/verify-signatures) - Verification guide

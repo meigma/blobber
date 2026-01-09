@@ -77,6 +77,17 @@ const FeatureList: FeatureItem[] = [
             </>
         ),
     },
+    {
+        title: 'Supply Chain Security',
+        icon: '04',
+        description: (
+            <>
+                Sign artifacts with{' '}
+                <Link href="https://sigstore.dev">Sigstore</Link> for provenance.
+                Verify signatures before pulling to ensure integrity.
+            </>
+        ),
+    },
 ];
 
 function Feature({ title, description, icon }: FeatureItem) {
@@ -108,6 +119,7 @@ function HomepageHeader() {
                     <div className="hero-pills">
                         <span className="hero-pill">OCI native</span>
                         <span className="hero-pill">eStargz indexing</span>
+                        <span className="hero-pill">Sigstore signing</span>
                         <span className="hero-pill">CLI + Go SDK</span>
                     </div>
                     <div className="hero-ctas">
@@ -177,8 +189,12 @@ function CodePreview() {
                                 {`# Push a directory to a registry
 blobber push ./config ghcr.io/myorg/config:v1
 
-# List files without downloading
-blobber list ghcr.io/myorg/config:v1
+# Push with Sigstore signing
+blobber push --sign ./config ghcr.io/myorg/config:v1
+
+# Pull with signature verification
+blobber pull --verify --verify-issuer https://accounts.google.com \\
+  --verify-subject dev@company.com ghcr.io/myorg/config:v1 ./out
 
 # Stream a single file to stdout
 blobber cat ghcr.io/myorg/config:v1 app.yaml`}
@@ -192,18 +208,25 @@ import (
     "context"
     "os"
     "github.com/meigma/blobber"
+    "github.com/meigma/blobber/sigstore"
 )
 
 func main() {
     ctx := context.Background()
-    client, _ := blobber.NewClient()
 
-    // Push a directory
+    // Create client with Sigstore signing
+    signer, _ := sigstore.NewSigner(sigstore.WithEphemeralKey())
+    client, _ := blobber.NewClient(blobber.WithSigner(signer))
+
+    // Push signs automatically
     client.Push(ctx, "ghcr.io/myorg/config:v1", os.DirFS("./config"))
 
-    // List files without downloading
-    img, _ := client.OpenImage(ctx, "ghcr.io/myorg/config:v1")
-    entries, _ := img.List()
+    // Verify signatures on pull
+    verifier, _ := sigstore.NewVerifier(
+        sigstore.WithIdentity("https://accounts.google.com", "dev@company.com"),
+    )
+    verified, _ := blobber.NewClient(blobber.WithVerifier(verifier))
+    verified.Pull(ctx, "ghcr.io/myorg/config:v1", "./out")
 }`}
                             </CodeBlock>
                         </TabItem>
@@ -251,6 +274,7 @@ function HighlightSection() {
                         <li>Inspect large images without pulling layers.</li>
                         <li>Stream a single file for config or secrets.</li>
                         <li>Pin by digest for immutable, reproducible builds.</li>
+                        <li>Sign with Sigstore for supply chain security.</li>
                     </ul>
                     <Link to="/docs/explanation/about-estargz">Learn how it works</Link>
                 </div>

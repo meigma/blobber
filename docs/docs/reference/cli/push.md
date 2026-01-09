@@ -31,6 +31,16 @@ Uploads all files from a local directory to an OCI registry as an eStargz-compre
 | `--insecure` | bool | `false` | Allow connections without TLS |
 | `-v, --verbose` | bool | `false` | Enable debug logging |
 
+### Signing Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--sign` | bool | `false` | Sign artifact using Sigstore |
+| `--sign-key` | string | | Path to private key for signing (PEM format) |
+| `--sign-key-pass` | string | | Password for encrypted private key |
+| `--fulcio-url` | string | `https://fulcio.sigstore.dev` | Fulcio CA URL for keyless signing |
+| `--rekor-url` | string | `https://rekor.sigstore.dev` | Rekor transparency log URL |
+
 ## Output
 
 On success, prints the SHA256 digest of the pushed manifest:
@@ -66,14 +76,35 @@ Push to an insecure registry:
 blobber push ./files localhost:5000/test:v1 --insecure
 ```
 
+Push with keyless signing (opens browser for OIDC):
+
+```bash
+blobber push --sign ./config ghcr.io/myorg/config:v1
+```
+
+Push with key-based signing:
+
+```bash
+blobber push --sign --sign-key ./private.pem ./config ghcr.io/myorg/config:v1
+```
+
+Push with custom Sigstore infrastructure:
+
+```bash
+blobber push --sign --fulcio-url https://fulcio.internal --rekor-url https://rekor.internal ./config ghcr.io/myorg/config:v1
+```
+
 ## Notes
 
 - Symbolic links are preserved in the archive
 - Empty directories are included
 - File permissions are preserved
 - Hidden files (dotfiles) are included
+- When `--sign` is used, the signature is stored as an OCI referrer artifact
 
 ## See Also
 
 - [blobber pull](/docs/reference/cli/pull) - Download from registry
+- [How to Sign Artifacts](/docs/how-to/sign-artifacts) - Signing guide
 - [How to Use Compression](/docs/how-to/use-compression) - Choosing compression algorithms
+- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing

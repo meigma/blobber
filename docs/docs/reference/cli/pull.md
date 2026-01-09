@@ -31,6 +31,16 @@ Downloads all files from an OCI registry image and extracts them to a local dire
 | `--insecure` | bool | `false` | Allow connections without TLS |
 | `-v, --verbose` | bool | `false` | Enable debug logging |
 
+### Verification Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--verify` | bool | `false` | Verify artifact signature before pulling |
+| `--verify-issuer` | string | | Required OIDC issuer URL (e.g., `https://accounts.google.com`) |
+| `--verify-subject` | string | | Required signer identity (e.g., `user@example.com`) |
+| `--verify-unsafe` | bool | `false` | Accept any valid signature (unsafe, for development only) |
+| `--trusted-root` | string | | Path to custom trusted root JSON file |
+
 ## Output
 
 Silent on success. Errors are printed to stderr.
@@ -62,6 +72,40 @@ Pull from an insecure registry:
 blobber pull --insecure localhost:5000/test:v1 ./output
 ```
 
+Pull with signature verification (production):
+
+```bash
+blobber pull --verify \
+  --verify-issuer https://accounts.google.com \
+  --verify-subject developer@company.com \
+  ghcr.io/myorg/config:v1 ./config
+```
+
+Pull with verification for GitHub Actions signatures:
+
+```bash
+blobber pull --verify \
+  --verify-issuer https://token.actions.githubusercontent.com \
+  --verify-subject https://github.com/org/repo/.github/workflows/release.yml@refs/heads/main \
+  ghcr.io/myorg/config:v1 ./config
+```
+
+Pull with verification using custom trusted root:
+
+```bash
+blobber pull --verify \
+  --trusted-root ./custom-root.json \
+  --verify-issuer https://auth.internal \
+  --verify-subject ci@internal \
+  ghcr.io/myorg/config:v1 ./config
+```
+
+Pull with verification accepting any signer (development only):
+
+```bash
+blobber pull --verify --verify-unsafe ghcr.io/myorg/config:v1 ./config
+```
+
 ## Conflict Detection
 
 Before downloading, blobber checks for file conflicts. If files would be overwritten:
@@ -89,7 +133,20 @@ Blobber enforces safety limits to prevent resource exhaustion:
 | Maximum total size | 10 GB |
 | Maximum file size | 1 GB |
 
+## Signature Verification
+
+When `--verify` is specified:
+
+1. Signature is checked **before** downloading the blob
+2. If verification fails, no content is downloaded
+3. Returns `ErrNoSignature` if no signature exists
+4. Returns `ErrSignatureInvalid` if verification fails
+
+**Note:** `--verify` requires either `--verify-issuer` + `--verify-subject` or `--verify-unsafe`.
+
 ## See Also
 
 - [blobber push](/docs/reference/cli/push) - Upload to registry
 - [blobber cat](/docs/reference/cli/cat) - Stream single files
+- [How to Verify Signatures](/docs/how-to/verify-signatures) - Verification guide
+- [About Signing](/docs/explanation/about-signing) - Understanding Sigstore signing

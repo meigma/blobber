@@ -202,6 +202,56 @@ if errors.Is(err, blobber.ErrRangeNotSupported) {
 
 ---
 
+### ErrSignatureInvalid
+
+```go
+var ErrSignatureInvalid = core.ErrSignatureInvalid
+```
+
+Signature verification failed.
+
+**When returned:**
+
+- Signature doesn't match the artifact content (possible tampering)
+- Signer identity doesn't match expected issuer/subject
+- Certificate chain validation failed
+- Transparency log proof invalid
+
+**Example:**
+
+```go
+_, err := client.OpenImage(ctx, ref)
+if errors.Is(err, blobber.ErrSignatureInvalid) {
+    return fmt.Errorf("artifact may be tampered or signed by unexpected identity")
+}
+```
+
+---
+
+### ErrNoSignature
+
+```go
+var ErrNoSignature = core.ErrNoSignature
+```
+
+No signature was found when verification was required.
+
+**When returned:**
+
+- Client configured with `WithVerifier` but artifact has no signature
+- No referrer artifacts of signature type exist
+
+**Example:**
+
+```go
+err := client.Pull(ctx, ref, destDir)
+if errors.Is(err, blobber.ErrNoSignature) {
+    return fmt.Errorf("artifact is not signed; push with --sign first")
+}
+```
+
+---
+
 ## Error Handling Pattern
 
 Use `errors.Is()` for sentinel error checking:
@@ -218,6 +268,10 @@ func handleImage(ctx context.Context, client *blobber.Client, ref string) error 
         return fmt.Errorf("not authorized to access %s", ref)
     case errors.Is(err, blobber.ErrInvalidRef):
         return fmt.Errorf("invalid image reference: %s", ref)
+    case errors.Is(err, blobber.ErrNoSignature):
+        return fmt.Errorf("image %s is not signed", ref)
+    case errors.Is(err, blobber.ErrSignatureInvalid):
+        return fmt.Errorf("image %s has invalid signature", ref)
     case err != nil:
         return fmt.Errorf("opening image: %w", err)
     }
