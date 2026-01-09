@@ -2,6 +2,7 @@ package blobber
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -216,37 +217,84 @@ func (c *Client) hasCachedBlob(desc LayerDescriptor) bool {
 }
 
 // verifySignature verifies that at least one valid signature exists for the image.
-// For multi-arch images, this resolves to the platform-specific manifest and verifies
-// signatures attached to that manifest (not the index).
+// For multi-arch images, this checks signatures on both the platform manifest (blobber's
+// signing approach) and the OCI index (cosign's default). Verification succeeds if at
+// least one valid signature is found on either.
 func (c *Client) verifySignature(ctx context.Context, ref string) error {
-	// Resolve to the platform-specific manifest for multi-arch images.
-	// This ensures we verify signatures attached to the actual platform manifest,
-	// not the OCI index which may have no signatures.
+	// Fetch the top-level manifest (may be an OCI index for multi-arch)
+	indexBytes, indexDigest, err := c.registry.FetchManifest(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("fetch manifest for %s: %w", ref, err)
+	}
+
+	// Resolve to the platform-specific manifest
 	layerDesc, err := c.registry.ResolveLayer(ctx, ref)
 	if err != nil {
 		return fmt.Errorf("resolve %s: %w", ref, err)
 	}
 
-	manifestDigest := layerDesc.ManifestDigest
-	if manifestDigest == "" {
+	platformDigest := layerDesc.ManifestDigest
+	if platformDigest == "" {
 		return fmt.Errorf("no manifest digest for %s", ref)
 	}
 
-	// Construct a digest reference to fetch the platform manifest bytes.
-	// For multi-arch, this is the platform manifest; for single-arch, it's the same manifest.
-	digestRef := digestReference(ref, manifestDigest)
-
-	manifestBytes, _, err := c.registry.FetchManifest(ctx, digestRef)
-	if err != nil {
-		return fmt.Errorf("fetch manifest for %s: %w", ref, err)
+	// Build list of manifests to check for signatures.
+	// For single-arch, both digests are the same. For multi-arch, we check both
+	// the platform manifest (blobber signs here) and the index (cosign signs here).
+	type manifestToCheck struct {
+		digest string
+		bytes  []byte
 	}
 
+	manifests := []manifestToCheck{
+		{digest: platformDigest},
+	}
+
+	// Add index if different from platform manifest (multi-arch case)
+	if indexDigest != platformDigest {
+		manifests = append(manifests, manifestToCheck{
+			digest: indexDigest,
+			bytes:  indexBytes,
+		})
+	}
+
+	// Fetch platform manifest bytes if needed
+	if platformDigest == indexDigest {
+		manifests[0].bytes = indexBytes
+	} else {
+		digestRef := digestReference(ref, platformDigest)
+		platformBytes, _, fetchErr := c.registry.FetchManifest(ctx, digestRef)
+		if fetchErr != nil {
+			return fmt.Errorf("fetch platform manifest for %s: %w", ref, fetchErr)
+		}
+		manifests[0].bytes = platformBytes
+	}
+
+	// Try to verify signatures on each manifest
+	var lastErr error
+	for _, m := range manifests {
+		if err := c.verifyManifestSignature(ctx, ref, m.digest, m.bytes); err == nil {
+			return nil // Success
+		} else if !errors.Is(err, ErrNoSignature) {
+			lastErr = err
+		}
+	}
+
+	// No valid signatures found on any manifest
+	if lastErr != nil {
+		return fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
+	}
+	return ErrNoSignature
+}
+
+// verifyManifestSignature verifies signatures attached to a specific manifest digest.
+func (c *Client) verifyManifestSignature(ctx context.Context, ref, manifestDigest string, manifestBytes []byte) error {
 	// Fetch signature referrers
 	// Use empty artifact type to fetch all referrers, allowing custom signers
 	// with different media types to be discovered and verified.
 	referrers, err := c.registry.FetchReferrers(ctx, ref, manifestDigest, "")
 	if err != nil {
-		return fmt.Errorf("fetching signatures for %s: %w", ref, err)
+		return fmt.Errorf("fetching signatures: %w", err)
 	}
 
 	if len(referrers) == 0 {
@@ -282,7 +330,7 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 		return nil
 	}
 
-	// All signatures failed
+	// All signatures failed verification
 	if lastErr != nil {
 		return fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
 	}
