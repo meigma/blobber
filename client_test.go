@@ -246,8 +246,9 @@ func TestVerifySignature_SingleArch(t *testing.T) {
 		verifier: verifier,
 	}
 
-	err := c.verifySignature(context.Background(), "test/repo:tag")
+	verifiedRef, err := c.verifySignature(context.Background(), "test/repo:tag")
 	require.NoError(t, err)
+	assert.Equal(t, digestReference("test/repo:tag", manifestDigest), verifiedRef)
 }
 
 func TestVerifySignature_MultiArch_PlatformManifest(t *testing.T) {
@@ -286,8 +287,9 @@ func TestVerifySignature_MultiArch_PlatformManifest(t *testing.T) {
 		verifier: verifier,
 	}
 
-	err := c.verifySignature(context.Background(), "test/repo:tag")
+	verifiedRef, err := c.verifySignature(context.Background(), "test/repo:tag")
 	require.NoError(t, err)
+	assert.Equal(t, digestReference("test/repo:tag", platformDigest), verifiedRef)
 }
 
 func TestVerifySignature_MultiArch_IndexManifest(t *testing.T) {
@@ -329,8 +331,9 @@ func TestVerifySignature_MultiArch_IndexManifest(t *testing.T) {
 		verifier: verifier,
 	}
 
-	err := c.verifySignature(context.Background(), "test/repo:tag")
+	verifiedRef, err := c.verifySignature(context.Background(), "test/repo:tag")
 	require.NoError(t, err)
+	assert.Equal(t, digestReference("test/repo:tag", platformDigest), verifiedRef)
 }
 
 func TestVerifySignature_NoSignatures(t *testing.T) {
@@ -355,7 +358,7 @@ func TestVerifySignature_NoSignatures(t *testing.T) {
 		verifier: &mockTestVerifier{},
 	}
 
-	err := c.verifySignature(context.Background(), "test/repo:tag")
+	_, err := c.verifySignature(context.Background(), "test/repo:tag")
 	assert.ErrorIs(t, err, ErrNoSignature)
 }
 
@@ -388,7 +391,7 @@ func TestVerifySignature_OnlySBOM(t *testing.T) {
 	}
 
 	// Should return ErrNoSignature, not ErrSignatureInvalid
-	err := c.verifySignature(context.Background(), "test/repo:tag")
+	_, err := c.verifySignature(context.Background(), "test/repo:tag")
 	assert.ErrorIs(t, err, ErrNoSignature)
 }
 
@@ -429,6 +432,7 @@ func TestVerifySignature_CustomSignerType(t *testing.T) {
 	}
 
 	// Custom signature types should be passed to the verifier
-	err := c.verifySignature(context.Background(), "test/repo:tag")
+	verifiedRef, err := c.verifySignature(context.Background(), "test/repo:tag")
 	require.NoError(t, err)
+	assert.Equal(t, digestReference("test/repo:tag", manifestDigest), verifiedRef)
 }

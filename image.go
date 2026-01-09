@@ -12,6 +12,7 @@ import (
 
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/containerd/stargz-snapshotter/estargz/zstdchunked"
+	"github.com/opencontainers/go-digest"
 )
 
 // Compile-time interface check.
@@ -42,6 +43,10 @@ type Image struct {
 // This is a low-level constructor primarily for testing. Most users should
 // use Client.OpenImage instead.
 func NewImageFromBlob(ref string, blob io.Reader, size int64, validator PathValidator, logger *slog.Logger) (*Image, error) {
+	return newImageFromBlobWithDigest(ref, blob, size, "", validator, logger)
+}
+
+func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expectedDigest string, validator PathValidator, logger *slog.Logger) (*Image, error) {
 	// Create temp file for blob storage
 	f, err := os.CreateTemp("", "blobber-image-*")
 	if err != nil {
@@ -50,7 +55,13 @@ func NewImageFromBlob(ref string, blob io.Reader, size int64, validator PathVali
 	tmpPath := f.Name()
 
 	// Copy blob to temp file
-	written, err := io.Copy(f, blob)
+	writer := io.Writer(f)
+	var digester digest.Digester
+	if expectedDigest != "" {
+		digester = digest.SHA256.Digester()
+		writer = io.MultiWriter(f, digester.Hash())
+	}
+	written, err := io.Copy(writer, blob)
 	if err != nil {
 		f.Close()
 		os.Remove(tmpPath)
@@ -62,6 +73,15 @@ func NewImageFromBlob(ref string, blob io.Reader, size int64, validator PathVali
 		f.Close()
 		os.Remove(tmpPath)
 		return nil, fmt.Errorf("blob size mismatch: expected %d, got %d", size, written)
+	}
+
+	if expectedDigest != "" {
+		computed := digester.Digest().String()
+		if computed != expectedDigest {
+			f.Close()
+			os.Remove(tmpPath)
+			return nil, fmt.Errorf("blob digest mismatch: expected %s, got %s", expectedDigest, computed)
+		}
 	}
 
 	// Seek to beginning for reading

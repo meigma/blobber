@@ -63,7 +63,8 @@ func (c *Client) signAndStoreReferrer(ctx context.Context, ref, manifestDigest s
 	}
 
 	// Fetch the manifest bytes for signing
-	manifestBytes, _, err := c.registry.FetchManifest(ctx, ref)
+	manifestRef := digestReference(ref, manifestDigest)
+	manifestBytes, _, err := c.registry.FetchManifest(ctx, manifestRef)
 	if err != nil {
 		return fmt.Errorf("fetch manifest: %w", err)
 	}

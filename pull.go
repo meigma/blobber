@@ -3,6 +3,9 @@ package blobber
 import (
 	"context"
 	"fmt"
+	"io"
+
+	"github.com/opencontainers/go-digest"
 
 	"github.com/meigma/blobber/internal/archive"
 )
@@ -15,12 +18,16 @@ import (
 //
 // If a verifier is configured (via WithVerifier), the signature is verified before
 // downloading the blob. Verification failure prevents the pull.
+//
+// The layer digest is verified while downloading for integrity.
 func (c *Client) Pull(ctx context.Context, ref, destDir string, opts ...PullOption) error {
 	// Verify signature if verifier configured
 	if c.verifier != nil {
-		if err := c.verifySignature(ctx, ref); err != nil {
+		verifiedRef, err := c.verifySignature(ctx, ref)
+		if err != nil {
 			return err
 		}
+		ref = verifiedRef
 	}
 
 	// Apply options
@@ -34,19 +41,19 @@ func (c *Client) Pull(ctx context.Context, ref, destDir string, opts ...PullOpti
 		return c.pullCached(ctx, ref, destDir, cfg)
 	}
 
+	// Resolve descriptor so we can verify the downloaded blob digest.
+	desc, err := c.registry.ResolveLayer(ctx, ref)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", ref, err)
+	}
+
 	// Pull blob from registry directly
-	blob, _, err := c.registry.Pull(ctx, ref)
+	blob, err := c.registry.FetchBlob(ctx, ref, desc)
 	if err != nil {
 		return fmt.Errorf("pull %s: %w", ref, err)
 	}
-	defer blob.Close()
 
-	// Extract to destination
-	if err := archive.Extract(ctx, blob, destDir, c.validator, cfg.limits); err != nil {
-		return fmt.Errorf("extract %s: %w", ref, err)
-	}
-
-	return nil
+	return c.extractWithDigest(ctx, ref, destDir, blob, desc, cfg.limits)
 }
 
 // pullCached pulls an image using the cache.
@@ -81,11 +88,26 @@ func (c *Client) pullCached(ctx context.Context, ref, destDir string, cfg *pullC
 	if err != nil {
 		return fmt.Errorf("open cached blob %s: %w", ref, err)
 	}
+
+	return c.extractWithDigest(ctx, ref, destDir, blob, desc, cfg.limits)
+}
+
+func (c *Client) extractWithDigest(ctx context.Context, ref, destDir string, blob io.ReadCloser, desc LayerDescriptor, limits ExtractLimits) error {
 	defer blob.Close()
 
-	// Extract to destination
-	if err := archive.Extract(ctx, blob, destDir, c.validator, cfg.limits); err != nil {
+	if desc.Digest == "" {
+		return fmt.Errorf("missing blob digest for %s", ref)
+	}
+
+	digester := digest.SHA256.Digester()
+	reader := io.TeeReader(blob, digester.Hash())
+	if err := archive.Extract(ctx, reader, destDir, c.validator, limits); err != nil {
 		return fmt.Errorf("extract %s: %w", ref, err)
+	}
+
+	computed := digester.Digest().String()
+	if computed != desc.Digest {
+		return fmt.Errorf("blob digest mismatch for %s: expected %s, got %s", ref, desc.Digest, computed)
 	}
 
 	return nil

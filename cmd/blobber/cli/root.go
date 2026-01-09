@@ -65,6 +65,7 @@ func init() {
 
 	// Verification flags
 	rootCmd.PersistentFlags().Bool("verify", false, "Verify artifact signatures")
+	rootCmd.PersistentFlags().Bool("verify-unsafe", false, "Allow any signer identity (unsafe)")
 	rootCmd.PersistentFlags().String("verify-issuer", "", "Required OIDC issuer URL (e.g., https://accounts.google.com)")
 	rootCmd.PersistentFlags().String("verify-subject", "", "Required identity subject (e.g., user@example.com)")
 	rootCmd.PersistentFlags().String("trusted-root", "", "Path to trusted root JSON file")
@@ -90,6 +91,8 @@ func init() {
 	viper.BindPFlag("rekor-url", rootCmd.PersistentFlags().Lookup("rekor-url"))
 	//nolint:errcheck
 	viper.BindPFlag("verify", rootCmd.PersistentFlags().Lookup("verify"))
+	//nolint:errcheck
+	viper.BindPFlag("verify-unsafe", rootCmd.PersistentFlags().Lookup("verify-unsafe"))
 	//nolint:errcheck
 	viper.BindPFlag("verify-issuer", rootCmd.PersistentFlags().Lookup("verify-issuer"))
 	//nolint:errcheck
@@ -251,7 +254,12 @@ func createVerifier() (blobber.Verifier, error) {
 	// Parse identity requirement if specified
 	issuer := viper.GetString("verify-issuer")
 	subject := viper.GetString("verify-subject")
-	if issuer != "" || subject != "" {
+	allowAny := viper.GetBool("verify-unsafe")
+	if issuer == "" && subject == "" {
+		if !allowAny {
+			return nil, errors.New("--verify requires --verify-issuer and --verify-subject (or --verify-unsafe)")
+		}
+	} else {
 		if issuer == "" || subject == "" {
 			return nil, errors.New("--verify-issuer and --verify-subject must both be specified")
 		}

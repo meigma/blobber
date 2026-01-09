@@ -113,12 +113,16 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 // If a verifier is configured (via WithVerifier), signatures are verified before
 // returning. Returns ErrNoSignature if no signatures are found, or ErrSignatureInvalid
 // if verification fails.
+//
+// The layer digest is verified while downloading for integrity.
 func (c *Client) OpenImage(ctx context.Context, ref string) (*Image, error) {
 	// Verify signature if verifier configured
 	if c.verifier != nil {
-		if err := c.verifySignature(ctx, ref); err != nil {
+		verifiedRef, err := c.verifySignature(ctx, ref)
+		if err != nil {
 			return nil, err
 		}
+		ref = verifiedRef
 	}
 
 	// Use cache if available
@@ -126,15 +130,21 @@ func (c *Client) OpenImage(ctx context.Context, ref string) (*Image, error) {
 		return c.openImageCached(ctx, ref)
 	}
 
+	// Resolve descriptor so we can verify the downloaded blob digest.
+	desc, err := c.registry.ResolveLayer(ctx, ref)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %s: %w", ref, err)
+	}
+
 	// Pull the blob from registry directly
-	blob, size, err := c.registry.Pull(ctx, ref)
+	blob, err := c.registry.FetchBlob(ctx, ref, desc)
 	if err != nil {
 		return nil, fmt.Errorf("pull %s: %w", ref, err)
 	}
 	defer blob.Close()
 
 	// Create Image with cached reader
-	img, err := NewImageFromBlob(ref, blob, size, c.validator, c.logger)
+	img, err := newImageFromBlobWithDigest(ref, blob, desc.Size, desc.Digest, c.validator, c.logger)
 	if err != nil {
 		return nil, fmt.Errorf("open image %s: %w", ref, err)
 	}
@@ -221,22 +231,24 @@ func (c *Client) hasCachedBlob(desc LayerDescriptor) bool {
 // For multi-arch images, this checks signatures on both the platform manifest (blobber's
 // signing approach) and the OCI index (cosign's default). Verification succeeds if at
 // least one valid signature is found on either.
-func (c *Client) verifySignature(ctx context.Context, ref string) error {
+// Returns a digest reference pinned to the verified platform manifest.
+func (c *Client) verifySignature(ctx context.Context, ref string) (string, error) {
 	// Fetch the top-level manifest (may be an OCI index for multi-arch)
 	indexBytes, indexDigest, err := c.registry.FetchManifest(ctx, ref)
 	if err != nil {
-		return fmt.Errorf("fetch manifest for %s: %w", ref, err)
+		return "", fmt.Errorf("fetch manifest for %s: %w", ref, err)
 	}
 
 	// Resolve to the platform-specific manifest
-	layerDesc, err := c.registry.ResolveLayer(ctx, ref)
+	pinnedIndexRef := digestReference(ref, indexDigest)
+	layerDesc, err := c.registry.ResolveLayer(ctx, pinnedIndexRef)
 	if err != nil {
-		return fmt.Errorf("resolve %s: %w", ref, err)
+		return "", fmt.Errorf("resolve %s: %w", ref, err)
 	}
 
 	platformDigest := layerDesc.ManifestDigest
 	if platformDigest == "" {
-		return fmt.Errorf("no manifest digest for %s", ref)
+		return "", fmt.Errorf("no manifest digest for %s", ref)
 	}
 
 	// Build list of manifests to check for signatures.
@@ -247,8 +259,21 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 		bytes  []byte
 	}
 
+	// Fetch platform manifest bytes if needed
+	platformRef := digestReference(ref, platformDigest)
+	var platformBytes []byte
+	if platformDigest == indexDigest {
+		platformBytes = indexBytes
+	} else {
+		var fetchErr error
+		platformBytes, _, fetchErr = c.registry.FetchManifest(ctx, platformRef)
+		if fetchErr != nil {
+			return "", fmt.Errorf("fetch platform manifest for %s: %w", ref, fetchErr)
+		}
+	}
+
 	manifests := []manifestToCheck{
-		{digest: platformDigest},
+		{digest: platformDigest, bytes: platformBytes},
 	}
 
 	// Add index if different from platform manifest (multi-arch case)
@@ -259,23 +284,11 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 		})
 	}
 
-	// Fetch platform manifest bytes if needed
-	if platformDigest == indexDigest {
-		manifests[0].bytes = indexBytes
-	} else {
-		digestRef := digestReference(ref, platformDigest)
-		platformBytes, _, fetchErr := c.registry.FetchManifest(ctx, digestRef)
-		if fetchErr != nil {
-			return fmt.Errorf("fetch platform manifest for %s: %w", ref, fetchErr)
-		}
-		manifests[0].bytes = platformBytes
-	}
-
 	// Try to verify signatures on each manifest
 	var lastErr error
 	for _, m := range manifests {
 		if err := c.verifyManifestSignature(ctx, ref, m.digest, m.bytes); err == nil {
-			return nil // Success
+			return digestReference(ref, platformDigest), nil // Success
 		} else if !errors.Is(err, ErrNoSignature) {
 			lastErr = err
 		}
@@ -283,9 +296,9 @@ func (c *Client) verifySignature(ctx context.Context, ref string) error {
 
 	// No valid signatures found on any manifest
 	if lastErr != nil {
-		return fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
+		return "", fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
 	}
-	return ErrNoSignature
+	return "", ErrNoSignature
 }
 
 // verifyManifestSignature verifies signatures attached to a specific manifest digest.

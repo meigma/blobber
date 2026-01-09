@@ -23,8 +23,8 @@ exists output1/config.yaml
 # Test 2: Verification without identity check (any signer)
 # ============================================================
 
-# Pull with verification but no identity requirement
-exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/signed:v1 output2
+# Pull with verification but no identity requirement (unsafe)
+exec blobber pull --insecure --verify --verify-unsafe --trusted-root trusted_root.json $REGISTRY/cli-test/signed:v1 output2
 ! stderr .
 exists output2/config.yaml
 
@@ -37,7 +37,7 @@ sigstore-push-invalid-sig testdata $REGISTRY/cli-test/invalid-sig:v1
 stdout 'sha256:'
 
 # Pull with verification should fail
-! exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/invalid-sig:v1 output3
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json --verify-issuer https://issuer.example.com --verify-subject test@example.com $REGISTRY/cli-test/invalid-sig:v1 output3
 stderr 'signature verification failed'
 
 # ============================================================
@@ -61,7 +61,7 @@ sigstore-push-tampered testdata $REGISTRY/cli-test/tampered:v1 test@example.com 
 stdout 'sha256:'
 
 # Pull with verification should fail (signature doesn't match manifest)
-! exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/tampered:v1 output5
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json --verify-issuer https://issuer.example.com --verify-subject test@example.com $REGISTRY/cli-test/tampered:v1 output5
 stderr 'signature verification failed'
 
 # ============================================================
@@ -82,7 +82,7 @@ exec blobber push --insecure testdata $REGISTRY/cli-test/unsigned:v1
 stdout 'sha256:'
 
 # Pull with verification should fail (no signature)
-! exec blobber pull --insecure --verify --trusted-root trusted_root.json $REGISTRY/cli-test/unsigned:v1 output7
+! exec blobber pull --insecure --verify --trusted-root trusted_root.json --verify-issuer https://issuer.example.com --verify-subject test@example.com $REGISTRY/cli-test/unsigned:v1 output7
 stderr 'no signature found'
 
 # ============================================================
