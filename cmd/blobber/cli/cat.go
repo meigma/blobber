@@ -17,8 +17,9 @@ This leverages eStargz format to download only the requested file.
 Examples:
   blobber cat ghcr.io/org/config:v1 config.yaml
   blobber cat ghcr.io/org/config:v1 subdir/data.json > data.json`,
-	Args: cobra.ExactArgs(2),
-	RunE: runCat,
+	Args:              cobra.ExactArgs(2),
+	RunE:              runCat,
+	ValidArgsFunction: completeImageFiles,
 }
 
 func init() {
