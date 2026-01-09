@@ -3,8 +3,11 @@ name: E2E Signing
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
+
+# Ensure only one signing workflow runs at a time to maintain consistent tag state
+concurrency:
+  group: e2e-signing
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -15,16 +18,14 @@ jobs:
   e2e-signing:
     name: E2E Signing Test
     runs-on: ubuntu-latest
-    # Skip for external PRs (no OIDC token available)
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
+          go-version-file: go.mod
 
       - name: Build CLI
         run: go build -o blobber ./cmd/blobber
@@ -45,7 +46,7 @@ jobs:
       - name: Push with signing
         run: |
           ./blobber push ./testdata/e2e \
-            ghcr.io/${{ github.repository }}/e2e-test:${{ github.sha }} \
+            ghcr.io/${{ github.repository }}/e2e-test:latest \
             --sign \
             --verbose
 
@@ -53,11 +54,11 @@ jobs:
         run: |
           rm -rf output
           ./blobber pull \
-            ghcr.io/${{ github.repository }}/e2e-test:${{ github.sha }} \
+            ghcr.io/${{ github.repository }}/e2e-test:latest \
             ./output \
             --verify \
             --verify-issuer "https://token.actions.githubusercontent.com" \
-            --verify-subject "https://github.com/${{ github.repository }}/.github/workflows/e2e-signing.yml@${{ github.ref }}" \
+            --verify-subject "https://github.com/${{ github.repository }}/.github/workflows/e2e-signing.yml@refs/heads/master" \
             --verbose
 
       - name: Verify content
@@ -65,4 +66,4 @@ jobs:
           echo "Comparing files..."
           diff testdata/e2e/file.txt output/file.txt
           diff testdata/e2e/another.txt output/another.txt
-          echo "✓ Round-trip with signing/verification succeeded"
+          echo "Round-trip with signing/verification succeeded"
