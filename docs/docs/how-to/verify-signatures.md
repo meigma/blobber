@@ -245,7 +245,7 @@ blobber pull --verify --verify-issuer https://issuer2 --verify-subject signer2@e
 
 - First verification fetches the trusted root (~100KB)
 - Subsequent verifications use cached root
-- Signature bundles are typically small (<10KB)
+- Signature bundles are typically small (`<10KB`)
 
 ## See Also
 
