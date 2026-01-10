@@ -16,7 +16,7 @@ import (
 	"github.com/meigma/blobber/core"
 )
 
-// mockRegistry is a test double for core.Registry.
+// mockRegistry is a test double for contracts.Registry.
 type mockRegistry struct {
 	blobs         map[string][]byte
 	rangeSupport  bool

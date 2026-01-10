@@ -16,16 +16,17 @@ import (
 	"time"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // jsonExt is the file extension for JSON metadata files.
 const jsonExt = ".json"
 
-// Cache implements core.BlobSource with disk-based caching.
+// Cache implements contracts.BlobSource with disk-based caching.
 // It stores complete blobs keyed by their SHA256 digest.
 type Cache struct {
 	path         string
-	fallback     core.Registry
+	fallback     contracts.Registry
 	logger       *slog.Logger
 	verifyOnRead bool
 
@@ -34,7 +35,7 @@ type Cache struct {
 
 // New creates a new cache at the given path.
 // The fallback registry is used to fetch blobs not in the cache.
-func New(path string, fallback core.Registry, logger *slog.Logger) (*Cache, error) {
+func New(path string, fallback contracts.Registry, logger *slog.Logger) (*Cache, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
@@ -71,7 +72,7 @@ func (c *Cache) SetVerifyOnRead(enabled bool) {
 //
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and the blob is re-downloaded (self-healing).
-func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
+func (c *Cache) Open(ctx context.Context, ref string, desc core.LayerDescriptor) (contracts.BlobHandle, error) {
 	entry, blobPath, entryPath := c.LoadCompleteEntry(desc.Digest)
 	if entry != nil {
 		c.logger.Debug("cache hit", "digest", desc.Digest)
@@ -427,7 +428,7 @@ func (c *Cache) selfHealEvict(digest string, err error) {
 
 // openCachedBlob opens a cached blob file as a BlobHandle.
 // Returns an error if the file is missing or has unexpected size (truncated/expanded).
-func (c *Cache) openCachedBlob(blobPath string, entry *Entry) (core.BlobHandle, error) {
+func (c *Cache) openCachedBlob(blobPath string, entry *Entry) (contracts.BlobHandle, error) {
 	if err := ensureCacheFile(blobPath); err != nil {
 		return nil, fmt.Errorf("open cached blob: %w", err)
 	}
@@ -780,7 +781,7 @@ func (c *Cache) savePartialProgress(entryPath string, entry *Entry, ranges []Ran
 //
 // If the cached blob file is missing or corrupt, the entry is evicted
 // and lazy loading starts fresh (self-healing).
-func (c *Cache) OpenLazy(ctx context.Context, ref string, desc core.LayerDescriptor) (core.BlobHandle, error) {
+func (c *Cache) OpenLazy(ctx context.Context, ref string, desc core.LayerDescriptor) (contracts.BlobHandle, error) {
 	if c.verifyOnRead {
 		return nil, errors.New("cache verify on read is incompatible with lazy loading")
 	}
@@ -806,7 +807,7 @@ func (c *Cache) openLazyHandle(
 	ref string,
 	desc core.LayerDescriptor,
 	blobPath, entryPath string,
-) (core.BlobHandle, error) {
+) (contracts.BlobHandle, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

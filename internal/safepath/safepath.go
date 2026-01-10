@@ -11,12 +11,13 @@ import (
 	"strings"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Compile-time interface implementation check.
-var _ core.PathValidator = (*Validator)(nil)
+var _ contracts.PathValidator = (*Validator)(nil)
 
-// Validator implements blobber.PathValidator.
+// Validator implements contracts.PathValidator.
 type Validator struct{}
 
 // NewValidator creates a new PathValidator.

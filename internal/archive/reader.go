@@ -8,10 +8,11 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz/zstdchunked"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Compile-time interface implementation check.
-var _ core.ArchiveReader = (*Reader)(nil)
+var _ contracts.ArchiveReader = (*Reader)(nil)
 
 // Reader reads eStargz blobs.
 type Reader struct{}
@@ -65,7 +66,7 @@ func (r *Reader) ReadTOC(ra io.ReaderAt, size int64) (*core.TOC, error) {
 // OpenFile returns a reader for a specific file within an eStargz blob.
 // The size parameter is the total blob size (needed for estargz.Open).
 //
-//nolint:gocritic // hugeParam: entry passed by value to match core.ArchiveReader interface
+//nolint:gocritic // hugeParam: entry passed by value to match contracts.ArchiveReader interface
 func (r *Reader) OpenFile(ra io.ReaderAt, size int64, entry core.TOCEntry) (io.Reader, error) {
 	sr := io.NewSectionReader(ra, 0, size)
 

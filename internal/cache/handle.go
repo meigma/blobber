@@ -3,13 +3,13 @@ package cache
 import (
 	"os"
 
-	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Compile-time interface check.
-var _ core.BlobHandle = (*fileHandle)(nil)
+var _ contracts.BlobHandle = (*fileHandle)(nil)
 
-// fileHandle implements core.BlobHandle for a cached file.
+// fileHandle implements contracts.BlobHandle for a cached file.
 type fileHandle struct {
 	file     *os.File
 	size     int64

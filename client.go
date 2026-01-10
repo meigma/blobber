@@ -15,16 +15,17 @@ import (
 	"github.com/meigma/blobber/core"
 	"github.com/meigma/blobber/internal/archive"
 	"github.com/meigma/blobber/internal/cache"
+	"github.com/meigma/blobber/internal/contracts"
 	"github.com/meigma/blobber/internal/registry"
 	"github.com/meigma/blobber/internal/safepath"
 )
 
 // Client provides operations against OCI registries.
 type Client struct {
-	registry  Registry
-	builder   ArchiveBuilder
-	reader    ArchiveReader
-	validator PathValidator
+	registry  contracts.Registry
+	builder   contracts.ArchiveBuilder
+	reader    contracts.ArchiveReader
+	validator contracts.PathValidator
 	logger    *slog.Logger
 
 	// configuration passed to registry
@@ -89,14 +90,15 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		regOpts = append(regOpts, registry.WithDescriptorCache(true))
 	}
 
-	c.registry = registry.New(regOpts...)
+	registryClient := registry.New(regOpts...)
+	c.registry = registryClient
 	c.builder = archive.NewBuilder(c.logger)
 	c.reader = archive.NewReader()
 	c.validator = safepath.NewValidator()
 
 	// Initialize cache if configured
 	if c.cacheDir != "" {
-		cacheInstance, err := cache.New(c.cacheDir, c.registry, c.logger)
+		cacheInstance, err := cache.New(c.cacheDir, registryClient, c.logger)
 		if err != nil {
 			return nil, fmt.Errorf("create cache: %w", err)
 		}
@@ -184,7 +186,7 @@ func (c *Client) openImageCached(ctx context.Context, ref string) (*Image, error
 	}
 
 	// Get blob handle from cache
-	var handle BlobHandle
+	var handle contracts.BlobHandle
 	if c.lazyLoading {
 		// Lazy loading: fetch bytes on-demand via ReadAt
 		handle, err = c.cache.OpenLazy(ctx, ref, desc)
@@ -202,7 +204,7 @@ func (c *Client) openImageCached(ctx context.Context, ref string) (*Image, error
 	}
 
 	// Create Image from the cached handle
-	img, err := NewImageFromHandle(ref, handle, c.validator, c.logger)
+	img, err := newImageFromHandle(ref, handle, c.validator, c.logger)
 	if err != nil {
 		handle.Close()
 		return nil, fmt.Errorf("open image %s: %w", ref, err)

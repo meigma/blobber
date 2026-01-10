@@ -15,6 +15,7 @@ import (
 	"github.com/opencontainers/go-digest"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // digestingWriter computes digest and size while writing.
@@ -44,7 +45,7 @@ func (d *digestingWriter) Digest() digest.Digest { return d.digester.Digest() }
 func (d *digestingWriter) Size() int64           { return d.size }
 
 // Compile-time interface implementation check.
-var _ core.ArchiveBuilder = (*Builder)(nil)
+var _ contracts.ArchiveBuilder = (*Builder)(nil)
 
 // Builder creates eStargz blobs from filesystems.
 type Builder struct {
