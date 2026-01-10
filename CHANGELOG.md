@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/meigma/blobber/compare/v1.1.0...v2.0.0) (2026-01-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove public interfaces (Registry, ArchiveBuilder, ArchiveReader, PathValidator, BlobHandle, BlobSource, Extractor) from core/types.go and type aliases from root package. Remove exported functions NewImageFromBlob and NewImageFromHandle.
+
+### Code Refactoring
+
+* move internal interfaces to internal/contracts ([#29](https://github.com/meigma/blobber/issues/29)) ([5b9d3dc](https://github.com/meigma/blobber/commit/5b9d3dcc3fdd93c1b77e6010767c8cb3597f92fa))
+
 ## [1.1.0](https://github.com/meigma/blobber/compare/v1.0.0...v1.1.0) (2026-01-09)
 
 
