@@ -37,7 +37,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # =============================================================================
 # Stage 2: Runtime
 # =============================================================================
-FROM dhi.io/debian-base:trixie
+FROM debian:trixie-slim
 
 # OCI Image Labels
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md
