@@ -103,7 +103,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Attestations for GHCR
+      # Build provenance attestations
       - name: Attest GHCR build provenance
         uses: actions/attest-build-provenance@v2
         with:
@@ -111,10 +111,33 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
-      # Attestations for Docker Hub
       - name: Attest Docker Hub build provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.DOCKERHUB_IMAGE }}
           subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      # SBOM generation and attestation
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.GHCR_IMAGE }}@${{ steps.build.outputs.digest }}
+          output-file: sbom.spdx.json
+          upload-artifact: false
+
+      - name: Attest GHCR SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.GHCR_IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+
+      - name: Attest Docker Hub SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.DOCKERHUB_IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: sbom.spdx.json
           push-to-registry: true
