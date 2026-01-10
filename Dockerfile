@@ -37,7 +37,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # =============================================================================
 # Stage 2: Runtime
 # =============================================================================
-FROM debian:trixie-slim
+FROM gcr.io/distroless/static-debian12:nonroot
 
 # OCI Image Labels
 # https://github.com/opencontainers/image-spec/blob/main/annotations.md
@@ -49,13 +49,8 @@ LABEL org.opencontainers.image.title="blobber" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="Meigma"
 
-# Copy CA certificates for HTTPS registry connections
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
-# Copy the binary
+# Copy the binary (distroless already includes CA certificates)
 COPY --from=builder /blobber /usr/local/bin/blobber
 
-# Use non-root user (65534 is standard 'nobody' user)
-USER 65534:65534
-
+# nonroot tag already runs as non-root user (65532)
 ENTRYPOINT ["/usr/local/bin/blobber"]
