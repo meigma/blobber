@@ -33,7 +33,7 @@ type Image struct {
 	blobSize   int64           // size of the blob
 	esr        *estargz.Reader // cached estargz reader
 
-	validator PathValidator
+	validator pathValidator
 	logger    *slog.Logger
 }
 
@@ -42,11 +42,11 @@ type Image struct {
 //
 // This is a low-level constructor primarily for testing. Most users should
 // use Client.OpenImage instead.
-func NewImageFromBlob(ref string, blob io.Reader, size int64, validator PathValidator, logger *slog.Logger) (*Image, error) {
+func NewImageFromBlob(ref string, blob io.Reader, size int64, validator pathValidator, logger *slog.Logger) (*Image, error) {
 	return newImageFromBlobWithDigest(ref, blob, size, "", validator, logger)
 }
 
-func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expectedDigest string, validator PathValidator, logger *slog.Logger) (*Image, error) {
+func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expectedDigest string, validator pathValidator, logger *slog.Logger) (*Image, error) {
 	// Create temp file for blob storage
 	f, err := os.CreateTemp("", "blobber-image-*")
 	if err != nil {
@@ -115,7 +115,7 @@ func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expected
 //
 // This is a low-level constructor primarily for cache integration. Most users
 // should use Client.OpenImage instead.
-func NewImageFromHandle(ref string, handle BlobHandle, validator PathValidator, logger *slog.Logger) (*Image, error) {
+func NewImageFromHandle(ref string, handle BlobHandle, validator pathValidator, logger *slog.Logger) (*Image, error) {
 	size := handle.Size()
 
 	// Create estargz reader directly from the handle (which implements io.ReaderAt)

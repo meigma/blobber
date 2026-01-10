@@ -21,10 +21,10 @@ import (
 
 // Client provides operations against OCI registries.
 type Client struct {
-	registry  Registry
-	builder   ArchiveBuilder
-	reader    ArchiveReader
-	validator PathValidator
+	registry  registry
+	builder   archiveBuilder
+	reader    archiveReader
+	validator pathValidator
 	logger    *slog.Logger
 
 	// configuration passed to registry
@@ -89,14 +89,15 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		regOpts = append(regOpts, registry.WithDescriptorCache(true))
 	}
 
-	c.registry = registry.New(regOpts...)
-	c.builder = archive.NewBuilder(c.logger)
-	c.reader = archive.NewReader()
-	c.validator = safepath.NewValidator()
+	registryAdapter := registry.NewAdapter(regOpts...)
+	c.registry = registryAdapter
+	c.builder = archive.NewBuilderAdapter(c.logger)
+	c.reader = archive.NewReaderAdapter()
+	c.validator = safepath.NewAdapter()
 
 	// Initialize cache if configured
 	if c.cacheDir != "" {
-		cacheInstance, err := cache.New(c.cacheDir, c.registry, c.logger)
+		cacheInstance, err := cache.New(c.cacheDir, registryAdapter, c.logger)
 		if err != nil {
 			return nil, fmt.Errorf("create cache: %w", err)
 		}
