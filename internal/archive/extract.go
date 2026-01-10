@@ -18,6 +18,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Extract extracts an eStargz blob to the destination directory.
@@ -28,7 +29,7 @@ import (
 //
 // Note: This implementation uses best-effort TOCTOU prevention via Lstat
 // checks and O_EXCL flags. Full openat(2) safety is not yet implemented.
-func Extract(ctx context.Context, r io.Reader, destDir string, validator core.PathValidator, limits core.ExtractLimits) error {
+func Extract(ctx context.Context, r io.Reader, destDir string, validator contracts.PathValidator, limits core.ExtractLimits) error {
 	// Auto-detect compression
 	decompReader, err := detectAndDecompress(r)
 	if err != nil {
@@ -82,7 +83,7 @@ type extractState struct {
 }
 
 // processEntry handles a single tar entry.
-func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader, validator core.PathValidator, state *extractState) error {
+func processEntry(ctx context.Context, destDir string, header *tar.Header, tr *tar.Reader, validator contracts.PathValidator, state *extractState) error {
 	// Skip TOC entry (eStargz stores TOC as stargz.index.json)
 	if header.Name == "stargz.index.json" {
 		return nil

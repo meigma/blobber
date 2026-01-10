@@ -1,4 +1,4 @@
-package blobber_test
+package blobber
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/meigma/blobber"
 	"github.com/meigma/blobber/internal/archive"
 	"github.com/meigma/blobber/internal/safepath"
 )
@@ -23,7 +22,7 @@ func buildTestBlob(t *testing.T, fsys fstest.MapFS) (data []byte, size int64) {
 	t.Helper()
 
 	builder := archive.NewBuilder(nil)
-	result, err := builder.Build(context.Background(), fsys, blobber.GzipCompression())
+	result, err := builder.Build(context.Background(), fsys, GzipCompression())
 	require.NoError(t, err, "Build() failed")
 	defer result.Blob.Close()
 
@@ -46,8 +45,8 @@ func TestImageList(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 	defer img.Close()
 
 	entries, err := img.List()
@@ -76,8 +75,8 @@ func TestImageOpen(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 	defer img.Close()
 
 	rc, err := img.Open("test.txt")
@@ -99,13 +98,13 @@ func TestImageOpenNotFound(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 	defer img.Close()
 
 	_, err = img.Open("does-not-exist.txt")
 	require.Error(t, err, "Open() should return error for non-existent file")
-	assert.ErrorIs(t, err, blobber.ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestImageWalk(t *testing.T) {
@@ -120,8 +119,8 @@ func TestImageWalk(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 	defer img.Close()
 
 	var paths []string
@@ -155,8 +154,8 @@ func TestImageClose(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 
 	// Close the image
 	require.NoError(t, img.Close(), "Close() failed")
@@ -186,8 +185,8 @@ func TestImageConcurrentAccess(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 	defer img.Close()
 
 	// Run concurrent operations
@@ -252,8 +251,8 @@ func TestImageMultipleOpens(t *testing.T) {
 
 	data, size := buildTestBlob(t, testFS)
 
-	img, err := blobber.NewImageFromBlob("test:latest", bytes.NewReader(data), size, safepath.NewValidator(), slog.New(slog.DiscardHandler))
-	require.NoError(t, err, "NewImageFromBlob() failed")
+	img, err := newImageFromBlobWithDigest("test:latest", bytes.NewReader(data), size, "", safepath.NewValidator(), slog.New(slog.DiscardHandler))
+	require.NoError(t, err, "newImageFromBlobWithDigest() failed")
 	defer img.Close()
 
 	// Open multiple files - should all work

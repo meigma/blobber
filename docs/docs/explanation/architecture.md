@@ -26,19 +26,22 @@ blobber/
 ├── compression.go      # Compression type constructors
 ├── entry.go            # FileEntry type
 ├── errors.go           # Sentinel errors
-├── registry.go         # Registry interface
-├── archive.go          # Archive interfaces
-├── safepath.go         # Path validation interface
+├── archive.go          # Type aliases for archive types
+├── cache.go            # Cache-related data types
+├── registry.go         # Registry option types
 └── internal/
+    ├── contracts/      # Internal interfaces shared across components
     ├── registry/       # ORAS-backed registry implementation
     ├── archive/        # eStargz build/read implementation
     ├── safepath/       # Path security validation
     └── cache/          # Blob caching
 ```
 
-## Core Interfaces
+## Internal Contracts
 
-Blobber defines interfaces that abstract the underlying implementations:
+Blobber keeps its internal interfaces in `internal/contracts` so they are not
+part of the public API. These contracts are used to decouple components
+without exposing them to external users.
 
 ### Registry
 

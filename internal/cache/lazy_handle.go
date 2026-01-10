@@ -10,12 +10,13 @@ import (
 	"sync"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Compile-time interface check.
-var _ core.BlobHandle = (*lazyHandle)(nil)
+var _ contracts.BlobHandle = (*lazyHandle)(nil)
 
-// lazyHandle implements core.BlobHandle with on-demand range fetching.
+// lazyHandle implements contracts.BlobHandle with on-demand range fetching.
 // It fetches only the byte ranges that are actually read, caching them
 // to disk for future access. This enables efficient selective file access
 // from eStargz archives without downloading the entire blob.

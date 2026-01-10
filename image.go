@@ -13,6 +13,8 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/containerd/stargz-snapshotter/estargz/zstdchunked"
 	"github.com/opencontainers/go-digest"
+
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Compile-time interface check.
@@ -28,25 +30,16 @@ type Image struct {
 	closed bool
 
 	ref        string
-	blobFile   *os.File        // temp file with blob data (non-cached path)
-	blobHandle BlobHandle      // cached blob handle (cached path)
-	blobSize   int64           // size of the blob
-	esr        *estargz.Reader // cached estargz reader
+	blobFile   *os.File             // temp file with blob data (non-cached path)
+	blobHandle contracts.BlobHandle // cached blob handle (cached path)
+	blobSize   int64                // size of the blob
+	esr        *estargz.Reader      // cached estargz reader
 
-	validator pathValidator
+	validator contracts.PathValidator
 	logger    *slog.Logger
 }
 
-// NewImageFromBlob creates a new Image from a blob reader.
-// The blob is written to a temp file for random access.
-//
-// This is a low-level constructor primarily for testing. Most users should
-// use Client.OpenImage instead.
-func NewImageFromBlob(ref string, blob io.Reader, size int64, validator pathValidator, logger *slog.Logger) (*Image, error) {
-	return newImageFromBlobWithDigest(ref, blob, size, "", validator, logger)
-}
-
-func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expectedDigest string, validator pathValidator, logger *slog.Logger) (*Image, error) {
+func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expectedDigest string, validator contracts.PathValidator, logger *slog.Logger) (*Image, error) {
 	// Create temp file for blob storage
 	f, err := os.CreateTemp("", "blobber-image-*")
 	if err != nil {
@@ -110,12 +103,12 @@ func newImageFromBlobWithDigest(ref string, blob io.Reader, size int64, expected
 	}, nil
 }
 
-// NewImageFromHandle creates a new Image from a BlobHandle.
+// newImageFromHandle creates a new Image from a BlobHandle.
 // Used when opening images from cache, where the blob is already on disk.
 //
 // This is a low-level constructor primarily for cache integration. Most users
 // should use Client.OpenImage instead.
-func NewImageFromHandle(ref string, handle BlobHandle, validator pathValidator, logger *slog.Logger) (*Image, error) {
+func newImageFromHandle(ref string, handle contracts.BlobHandle, validator contracts.PathValidator, logger *slog.Logger) (*Image, error) {
 	size := handle.Size()
 
 	// Create estargz reader directly from the handle (which implements io.ReaderAt)

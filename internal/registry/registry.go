@@ -25,10 +25,11 @@ import (
 	"oras.land/oras-go/v2/registry/remote/retry"
 
 	"github.com/meigma/blobber/core"
+	"github.com/meigma/blobber/internal/contracts"
 )
 
 // Compile-time interface implementation check.
-var _ core.Registry = (*orasRegistry)(nil)
+var _ contracts.Registry = (*orasRegistry)(nil)
 
 // Option configures an orasRegistry.
 type Option func(*orasRegistry)

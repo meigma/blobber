@@ -78,7 +78,7 @@ func TestOrasRegistry_InterfaceCompliance(t *testing.T) {
 	t.Parallel()
 
 	// This test verifies the compile-time interface check works.
-	// The actual check is: var _ core.Registry = (*orasRegistry)(nil)
+	// The actual check is: var _ contracts.Registry = (*orasRegistry)(nil)
 	// If the interface isn't satisfied, the code won't compile.
 	r := New()
 	assert.NotNil(t, r)
