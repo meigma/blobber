@@ -111,7 +111,7 @@ func TestExtract_FileContent(t *testing.T) {
 	err = Extract(context.Background(), bytes.NewReader(data), destDir, validator, limits)
 	require.NoError(t, err)
 
-	//nolint:gosec // G304: Test file path is constructed from t.TempDir()
+	//nolint:gosec // test path from t.TempDir()
 	content, err := os.ReadFile(filepath.Join(destDir, "test.txt"))
 	require.NoError(t, err, "failed to read extracted file")
 
@@ -259,7 +259,7 @@ func TestExtract_ContextCancellation(t *testing.T) {
 	limits := core.ExtractLimits{}
 
 	err = Extract(ctx, bytes.NewReader(data), destDir, validator, limits)
-	assert.Error(t, err, "Extract() should return error when context is canceled")
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestExtract_InvalidArchive(t *testing.T) {
@@ -276,7 +276,7 @@ func TestExtract_InvalidArchive(t *testing.T) {
 	assert.ErrorIs(t, err, core.ErrInvalidArchive)
 }
 
-func Test_detectAndDecompress(t *testing.T) {
+func TestDetectAndDecompress(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
