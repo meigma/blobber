@@ -8,10 +8,20 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	"sync"
 )
 
 // Compile-time interface check.
 var _ Writer = (*writer)(nil)
+
+// copyBufPool is a pool of buffers used by copyWithContext.
+// Using a pool avoids allocating a new 128KB buffer for each file copy.
+var copyBufPool = sync.Pool{
+	New: func() any {
+		buf := make([]byte, 128*1024)
+		return &buf
+	},
+}
 
 // WriterOption configures a writer.
 type WriterOption func(*writer)
@@ -164,7 +174,10 @@ func (w *writer) copyFileContent(ctx context.Context, tw *tar.Writer, src fs.FS,
 // copyWithContext copies from src to dst while honoring context cancellation.
 // It checks context every 128KB to balance responsiveness with performance.
 func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
-	buf := make([]byte, 128*1024)
+	bufp := copyBufPool.Get().(*[]byte)
+	buf := *bufp
+	defer copyBufPool.Put(bufp)
+
 	for {
 		select {
 		case <-ctx.Done():
