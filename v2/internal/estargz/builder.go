@@ -14,6 +14,9 @@ import (
 	"github.com/meigma/blobber/v2/internal/tar"
 )
 
+// Compile-time interface check.
+var _ Builder = (*builder)(nil)
+
 // BuildResult contains metadata from a Build operation.
 type BuildResult struct {
 	// BlobDigest is the SHA-256 digest of the compressed blob.
@@ -29,18 +32,17 @@ type BuildResult struct {
 	TOCDigest digest.Digest
 }
 
-// Builder creates eStargz archives from filesystem sources.
-type Builder struct {
+type builder struct {
 	logger      *slog.Logger
 	compression estargz.Compressor
 }
 
 // BuilderOption configures a Builder.
-type BuilderOption func(*Builder)
+type BuilderOption func(*builder)
 
 // WithBuilderLogger sets the logger for the builder.
 func WithBuilderLogger(logger *slog.Logger) BuilderOption {
-	return func(b *Builder) {
+	return func(b *builder) {
 		b.logger = logger
 	}
 }
@@ -48,14 +50,14 @@ func WithBuilderLogger(logger *slog.Logger) BuilderOption {
 // WithCompression sets the compression algorithm.
 // If not specified, gzip compression is used.
 func WithCompression(c estargz.Compressor) BuilderOption {
-	return func(b *Builder) {
+	return func(b *builder) {
 		b.compression = c
 	}
 }
 
 // NewBuilder creates a new Builder with the given options.
-func NewBuilder(opts ...BuilderOption) *Builder {
-	b := &Builder{}
+func NewBuilder(opts ...BuilderOption) Builder {
+	b := &builder{}
 	for _, opt := range opts {
 		opt(b)
 	}
@@ -72,7 +74,7 @@ func NewBuilder(opts ...BuilderOption) *Builder {
 //
 // The method walks the filesystem, creates a tar archive, and compresses it
 // using the eStargz format. The compressed output is written to dst.
-func (b *Builder) Build(ctx context.Context, dst io.Writer, src fs.FS) (*BuildResult, error) {
+func (b *builder) Build(ctx context.Context, dst io.Writer, src fs.FS) (*BuildResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -142,7 +144,7 @@ func joinTarError(primary, tarErr error) error {
 
 // writeTarToPipe writes tar entries from src to the pipe writer.
 // It closes the pipe when done, propagating any error.
-func (b *Builder) writeTarToPipe(ctx context.Context, pw *io.PipeWriter, src fs.FS) error {
+func (b *builder) writeTarToPipe(ctx context.Context, pw *io.PipeWriter, src fs.FS) error {
 	tw := tar.NewWriter(tar.WithWriterLogger(b.logger))
 	err := tw.WriteTo(ctx, pw, src)
 	if err != nil {

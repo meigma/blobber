@@ -14,15 +14,13 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 )
 
+// Compile-time interface check.
+var _ Reader = (*reader)(nil)
+
 // typeDir is the TOC entry type for directories.
 const typeDir = "dir"
 
-// Reader provides fs.FS access to an eStargz archive.
-//
-// The Reader parses the TOC eagerly at creation time and fetches file
-// content lazily on Read(). Each Open() call returns an independent
-// file handle with its own read position.
-type Reader struct {
+type reader struct {
 	ctx    context.Context
 	logger *slog.Logger
 	sr     *estargz.Reader
@@ -46,7 +44,7 @@ func WithReaderLogger(logger *slog.Logger) ReaderOption {
 //
 // The TOC is parsed eagerly. If parsing fails, an error is returned.
 // The provided context is stored and used for all subsequent read operations.
-func NewReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) (*Reader, error) {
+func NewReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) (Reader, error) {
 	cfg := &readerConfig{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -59,22 +57,22 @@ func NewReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) (*R
 	sr := io.NewSectionReader(src, 0, src.Size())
 
 	// Parse the TOC eagerly.
-	reader, err := estargz.Open(sr)
+	esr, err := estargz.Open(sr)
 	if err != nil {
 		return nil, fmt.Errorf("parse estargz: %w", err)
 	}
 
 	cfg.logger.Debug("opened estargz reader", "size", src.Size())
 
-	return &Reader{
+	return &reader{
 		ctx:    ctx,
 		logger: cfg.logger,
-		sr:     reader,
+		sr:     esr,
 	}, nil
 }
 
 // Open opens the named file.
-func (r *Reader) Open(name string) (fs.File, error) {
+func (r *reader) Open(name string) (fs.File, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -113,7 +111,7 @@ func (r *Reader) Open(name string) (fs.File, error) {
 }
 
 // Stat returns a FileInfo describing the named file.
-func (r *Reader) Stat(name string) (fs.FileInfo, error) {
+func (r *reader) Stat(name string) (fs.FileInfo, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -133,7 +131,7 @@ func (r *Reader) Stat(name string) (fs.FileInfo, error) {
 
 // ReadDir reads the named directory and returns a list of directory entries
 // sorted by filename as required by fs.ReadDirFS.
-func (r *Reader) ReadDir(name string) ([]fs.DirEntry, error) {
+func (r *reader) ReadDir(name string) ([]fs.DirEntry, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -190,7 +188,7 @@ func (r *Reader) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 // Close closes the reader.
-func (r *Reader) Close() error {
+func (r *reader) Close() error {
 	// The estargz.Reader doesn't have a Close method,
 	// but we might need cleanup in the future.
 	return nil
@@ -270,7 +268,7 @@ func (f *file) Close() error {
 
 // dir implements fs.File for directories.
 type dir struct {
-	reader  *Reader
+	reader  *reader
 	name    string
 	entry   *estargz.TOCEntry
 	entries []fs.DirEntry

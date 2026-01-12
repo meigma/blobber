@@ -12,7 +12,41 @@
 // configuration via functional options.
 package estargz
 
-import "io"
+//go:generate go run github.com/matryer/moq@latest -out mocks/builder.go -pkg mocks . Builder
+//go:generate go run github.com/matryer/moq@latest -out mocks/reader.go -pkg mocks . Reader
+//go:generate go run github.com/matryer/moq@latest -out mocks/extractor.go -pkg mocks . Extractor
+
+import (
+	"context"
+	"io"
+	"io/fs"
+)
+
+// Builder creates eStargz archives from filesystem sources.
+type Builder interface {
+	// Build creates an eStargz archive from the given filesystem.
+	// The compressed output is written to dst.
+	Build(ctx context.Context, dst io.Writer, src fs.FS) (*BuildResult, error)
+}
+
+// Reader provides fs.FS access to an eStargz archive.
+//
+// The Reader parses the TOC eagerly at creation time and fetches file
+// content lazily on Read(). Each Open() call returns an independent
+// file handle with its own read position.
+type Reader interface {
+	fs.FS
+	fs.StatFS
+	fs.ReadDirFS
+	io.Closer
+}
+
+// Extractor extracts eStargz archives to the filesystem.
+type Extractor interface {
+	// Extract decompresses an eStargz archive and extracts it to destDir.
+	// The compression format (gzip or zstd) is auto-detected from magic bytes.
+	Extract(ctx context.Context, r io.Reader, destDir string) error
+}
 
 // SizedReaderAt extends io.ReaderAt with size information.
 //

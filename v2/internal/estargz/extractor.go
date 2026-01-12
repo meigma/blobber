@@ -18,24 +18,26 @@ import (
 // tocFilename is the eStargz Table of Contents entry name.
 const tocFilename = "stargz.index.json"
 
+// Compile-time interface check.
+var _ Extractor = (*extractor)(nil)
+
 // isTOCEntry reports whether the given path is a TOC entry.
 // Handles both "stargz.index.json" and "./stargz.index.json" (common tar prefix).
 func isTOCEntry(path string) bool {
 	return path == tocFilename || path == "./"+tocFilename
 }
 
-// Extractor extracts eStargz archives to the filesystem.
-type Extractor struct {
+type extractor struct {
 	logger       *slog.Logger
 	tarExtractor tar.Extractor
 }
 
 // ExtractorOption configures an Extractor.
-type ExtractorOption func(*Extractor)
+type ExtractorOption func(*extractor)
 
 // WithExtractorLogger sets the logger for the extractor.
 func WithExtractorLogger(logger *slog.Logger) ExtractorOption {
-	return func(e *Extractor) {
+	return func(e *extractor) {
 		e.logger = logger
 	}
 }
@@ -43,14 +45,14 @@ func WithExtractorLogger(logger *slog.Logger) ExtractorOption {
 // WithTarExtractor sets the tar extractor to use.
 // If not provided, a default extractor is created with standard path validation.
 func WithTarExtractor(te tar.Extractor) ExtractorOption {
-	return func(e *Extractor) {
+	return func(e *extractor) {
 		e.tarExtractor = te
 	}
 }
 
 // NewExtractor creates a new Extractor with the given options.
-func NewExtractor(opts ...ExtractorOption) *Extractor {
-	e := &Extractor{}
+func NewExtractor(opts ...ExtractorOption) Extractor {
+	e := &extractor{}
 	for _, opt := range opts {
 		opt(e)
 	}
@@ -67,7 +69,7 @@ func NewExtractor(opts ...ExtractorOption) *Extractor {
 //
 // The compression format (gzip or zstd) is auto-detected from magic bytes.
 // The TOC entry (stargz.index.json) is automatically excluded from extraction.
-func (e *Extractor) Extract(ctx context.Context, r io.Reader, destDir string) error {
+func (e *extractor) Extract(ctx context.Context, r io.Reader, destDir string) error {
 	decompressed, err := detectAndDecompress(r)
 	if err != nil {
 		return fmt.Errorf("decompress: %w", err)
