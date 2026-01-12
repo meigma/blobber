@@ -15,7 +15,10 @@ import (
 	"context"
 	"io"
 
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/meigma/blobber/v2/internal/estargz"
 )
 
 // Client provides OCI registry operations.
@@ -51,14 +54,15 @@ type Client interface {
 	// PushReferrer uploads a referrer artifact that references a subject.
 	// The artifact descriptor describes the content being pushed.
 	// The subject descriptor identifies what this artifact refers to.
-	PushReferrer(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) error
+	// Returns the referrer manifest digest for optional follow-up operations (e.g., signing).
+	PushReferrer(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) (digest.Digest, error)
 
 	// ListReferrers returns all referrers for a subject digest.
 	// If artifactType is non-empty, only referrers of that type are returned.
 	ListReferrers(ctx context.Context, ref string, subjectDigest string, artifactType string) ([]ocispec.Descriptor, error)
 
-	// BlobReader creates a SizedReaderAt for random access to a remote blob.
+	// BlobReader creates a BlobSource for random access to a remote blob.
 	// The returned reader issues HTTP range requests for each ReadAt call.
 	// The caller is responsible for closing the returned reader.
-	BlobReader(ctx context.Context, ref string, desc ocispec.Descriptor) (*BlobReader, error)
+	BlobReader(ctx context.Context, ref string, desc ocispec.Descriptor) (estargz.BlobSource, error)
 }

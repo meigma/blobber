@@ -13,6 +13,7 @@ import (
 	"github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/meigma/blobber/v2/internal/estargz"
 	"github.com/meigma/blobber/v2/internal/oci"
 )
 
@@ -204,6 +205,7 @@ func (r *registry) FetchManifest(ctx context.Context, ref string, opts ...FetchO
 			Size:      layer.Size,
 			MediaType: layer.MediaType,
 		},
+		Raw: manifestBytes,
 	}
 
 	// Fetch referrers unless skipped.
@@ -267,7 +269,7 @@ func (r *registry) FetchBlob(ctx context.Context, ref string) (io.ReadCloser, er
 }
 
 // OpenBlob returns a reader for random access to the blob.
-func (r *registry) OpenBlob(ctx context.Context, ref string) (*oci.BlobReader, error) {
+func (r *registry) OpenBlob(ctx context.Context, ref string) (estargz.BlobSource, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -320,15 +322,77 @@ func (r *registry) AttachArtifact(ctx context.Context, ref, artifactType string,
 	}
 
 	// Push the referrer.
-	if err := r.client.PushReferrer(ctx, ref, subjectDesc, artifactDesc, content); err != nil {
+	manifestDigest, err := r.client.PushReferrer(ctx, ref, subjectDesc, artifactDesc, content)
+	if err != nil {
 		return "", fmt.Errorf("push referrer: %w", err)
 	}
 
 	r.logger.Debug("attached artifact",
 		"ref", ref,
 		"artifact_type", artifactType,
-		"digest", artifactDesc.Digest,
+		"manifest_digest", manifestDigest,
 	)
 
-	return artifactDesc.Digest, nil
+	return manifestDigest, nil
+}
+
+// FetchReferrerContent downloads the content of a referrer artifact.
+//
+// The referrerDigest is the digest of the referrer manifest (as returned by
+// AttachArtifact or found in Referrer.Digest from FetchManifest).
+// This method fetches the referrer manifest, validates it has a single layer,
+// and returns the content of that layer.
+func (r *registry) FetchReferrerContent(ctx context.Context, ref string, referrerDigest digest.Digest) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	// Parse the original reference to get the repository.
+	parsedRef, err := oci.ParseReference(ref)
+	if err != nil {
+		return nil, fmt.Errorf("parse reference: %w", err)
+	}
+
+	// Construct a digest reference for the referrer manifest.
+	digestRef := parsedRef.RepositoryReference() + "@" + referrerDigest.String()
+
+	// Fetch the referrer manifest.
+	manifestBytes, _, err := r.client.FetchManifest(ctx, digestRef)
+	if err != nil {
+		return nil, fmt.Errorf("fetch referrer manifest: %w", err)
+	}
+
+	// Parse the manifest.
+	var manifest ocispec.Manifest
+	if unmarshalErr := json.Unmarshal(manifestBytes, &manifest); unmarshalErr != nil {
+		return nil, fmt.Errorf("parse referrer manifest: %w", unmarshalErr)
+	}
+
+	// Validate single-layer constraint.
+	if len(manifest.Layers) != 1 {
+		return nil, fmt.Errorf("invalid referrer manifest: expected 1 layer, got %d", len(manifest.Layers))
+	}
+
+	layer := manifest.Layers[0]
+
+	// Fetch the layer blob content.
+	rc, err := r.client.FetchBlob(ctx, ref, layer)
+	if err != nil {
+		return nil, fmt.Errorf("fetch referrer content: %w", err)
+	}
+	defer rc.Close()
+
+	content, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, fmt.Errorf("read referrer content: %w", err)
+	}
+
+	r.logger.Debug("fetched referrer content",
+		"ref", ref,
+		"manifest_digest", referrerDigest,
+		"layer_digest", layer.Digest,
+		"size", len(content),
+	)
+
+	return content, nil
 }

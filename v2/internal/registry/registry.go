@@ -13,7 +13,17 @@ import (
 
 	"github.com/opencontainers/go-digest"
 
-	"github.com/meigma/blobber/v2/internal/oci"
+	"github.com/meigma/blobber/v2/internal/domain"
+	"github.com/meigma/blobber/v2/internal/estargz"
+)
+
+// Re-export domain types for convenience.
+type (
+	PushMetadata   = domain.PushMetadata
+	PushResult     = domain.PushResult
+	BlobManifest   = domain.BlobManifest
+	BlobDescriptor = domain.BlobDescriptor
+	Referrer       = domain.Referrer
 )
 
 // Registry provides Blob storage operations on OCI registries.
@@ -37,82 +47,20 @@ type Registry interface {
 	// OpenBlob returns a reader for random access to the blob.
 	// This enables streaming via TOC-based byte range requests.
 	// The caller is responsible for closing the returned reader.
-	OpenBlob(ctx context.Context, ref string) (*oci.BlobReader, error)
+	OpenBlob(ctx context.Context, ref string) (estargz.BlobSource, error)
 
 	// AttachArtifact attaches content to a manifest as a referrer.
 	// The ref identifies the target manifest (tag or digest reference).
 	// Returns the referrer manifest's digest for optional follow-up operations.
 	AttachArtifact(ctx context.Context, ref string, artifactType string, content []byte, annotations map[string]string) (digest.Digest, error)
-}
 
-// PushMetadata contains the metadata needed to create a blob manifest.
-type PushMetadata struct {
-	// BlobDigest is the SHA-256 digest of the compressed blob.
-	BlobDigest digest.Digest
-
-	// BlobSize is the size of the compressed blob in bytes.
-	BlobSize int64
-
-	// UncompressedDigest is the SHA-256 digest of the uncompressed tar content (DiffID).
-	UncompressedDigest digest.Digest
-
-	// TOCDigest is the SHA-256 digest of the Table of Contents.
-	TOCDigest digest.Digest
-
-	// MediaType is the blob's media type (e.g., "application/vnd.oci.image.layer.v1.tar+gzip").
-	MediaType string
-}
-
-// PushResult contains the result of a Push operation.
-type PushResult struct {
-	// Reference is the digest reference (e.g., "ghcr.io/org/repo@sha256:abc...").
-	Reference string
-
-	// Manifest is the pushed blob's manifest metadata.
-	Manifest BlobManifest
-}
-
-// BlobManifest represents metadata about a pushed blob's manifest.
-type BlobManifest struct {
-	// Digest is the manifest's SHA-256 digest.
-	Digest digest.Digest
-
-	// Size is the manifest size in bytes.
-	Size int64
-
-	// Blob contains the blob's descriptor information.
-	Blob BlobDescriptor
-
-	// Referrers contains attached artifacts (signatures, SBOMs, etc.).
-	// This is empty if fetched with WithoutReferrers.
-	Referrers []Referrer
-}
-
-// BlobDescriptor contains metadata about the blob itself.
-type BlobDescriptor struct {
-	// Digest is the blob's SHA-256 digest.
-	Digest digest.Digest
-
-	// Size is the blob size in bytes.
-	Size int64
-
-	// MediaType is the blob's media type.
-	MediaType string
-}
-
-// Referrer represents an artifact attached to a manifest.
-type Referrer struct {
-	// Digest is the referrer manifest's digest.
-	Digest digest.Digest
-
-	// ArtifactType identifies the kind of artifact (e.g., "application/spdx+json").
-	ArtifactType string
-
-	// Size is the referrer manifest size in bytes.
-	Size int64
-
-	// Annotations contains optional metadata.
-	Annotations map[string]string
+	// FetchReferrerContent downloads the content of a referrer artifact.
+	// The ref identifies the repository and referrerDigest is the digest of the
+	// referrer manifest (as returned by AttachArtifact or found in Referrer.Digest).
+	// This method fetches the referrer manifest, validates it has a single layer,
+	// and returns the content of that layer.
+	// This is used by Policy implementations to fetch signature or attestation content.
+	FetchReferrerContent(ctx context.Context, ref string, referrerDigest digest.Digest) ([]byte, error)
 }
 
 // FetchOption configures FetchManifest behavior.

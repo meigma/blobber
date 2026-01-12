@@ -19,6 +19,8 @@ import (
 	"oras.land/oras-go/v2/registry/remote/auth"
 	"oras.land/oras-go/v2/registry/remote/credentials"
 	"oras.land/oras-go/v2/registry/remote/retry"
+
+	"github.com/meigma/blobber/v2/internal/estargz"
 )
 
 // Compile-time interface check.
@@ -335,24 +337,24 @@ func (c *client) Tag(ctx context.Context, ref string, desc ocispec.Descriptor, t
 // PushReferrer uploads a referrer artifact that references a subject.
 //
 //nolint:gocritic // hugeParam: descriptors passed by value to match OCI ecosystem patterns
-func (c *client) PushReferrer(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) error {
+func (c *client) PushReferrer(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) (digest.Digest, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return "", err
 	}
 
 	parsedRef, err := ParseReference(ref)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	repo, err := c.newRepository(parsedRef)
 	if err != nil {
-		return fmt.Errorf("create repository: %w", err)
+		return "", fmt.Errorf("create repository: %w", err)
 	}
 
 	// Push the artifact content as a blob.
 	if pushErr := repo.Blobs().Push(ctx, artifact, bytes.NewReader(content)); pushErr != nil {
-		return fmt.Errorf("push artifact blob: %w", mapError(pushErr))
+		return "", fmt.Errorf("push artifact blob: %w", mapError(pushErr))
 	}
 
 	// Create empty config (OCI 1.1 artifact pattern).
@@ -364,7 +366,7 @@ func (c *client) PushReferrer(ctx context.Context, ref string, subject ocispec.D
 	}
 
 	if pushErr := repo.Blobs().Push(ctx, configDesc, bytes.NewReader(emptyConfig)); pushErr != nil {
-		return fmt.Errorf("push config: %w", mapError(pushErr))
+		return "", fmt.Errorf("push config: %w", mapError(pushErr))
 	}
 
 	// Create manifest with subject reference.
@@ -380,7 +382,7 @@ func (c *client) PushReferrer(ctx context.Context, ref string, subject ocispec.D
 
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {
-		return fmt.Errorf("marshal manifest: %w", err)
+		return "", fmt.Errorf("marshal manifest: %w", err)
 	}
 
 	manifestDesc := ocispec.Descriptor{
@@ -391,11 +393,11 @@ func (c *client) PushReferrer(ctx context.Context, ref string, subject ocispec.D
 	}
 
 	if err := repo.Manifests().Push(ctx, manifestDesc, bytes.NewReader(manifestJSON)); err != nil {
-		return fmt.Errorf("push manifest: %w", mapError(err))
+		return "", fmt.Errorf("push manifest: %w", mapError(err))
 	}
 
 	c.logger.Debug("pushed referrer", "ref", ref, "subject", subject.Digest, "artifact", artifact.Digest)
-	return nil
+	return manifestDesc.Digest, nil
 }
 
 // ListReferrers returns all referrers for a subject digest.
@@ -436,10 +438,10 @@ func (c *client) ListReferrers(ctx context.Context, ref, subjectDigest, artifact
 	return referrers, nil
 }
 
-// BlobReader creates a SizedReaderAt for random access to a remote blob.
+// BlobReader creates a BlobSource for random access to a remote blob.
 //
 //nolint:gocritic // hugeParam: desc passed by value to match OCI ecosystem patterns
-func (c *client) BlobReader(ctx context.Context, ref string, desc ocispec.Descriptor) (*BlobReader, error) {
+func (c *client) BlobReader(ctx context.Context, ref string, desc ocispec.Descriptor) (estargz.BlobSource, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

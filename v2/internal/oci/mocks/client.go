@@ -5,7 +5,9 @@ package mocks
 
 import (
 	"context"
+	"github.com/meigma/blobber/v2/internal/estargz"
 	"github.com/meigma/blobber/v2/internal/oci"
+	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"io"
 	"sync"
@@ -21,7 +23,7 @@ var _ oci.Client = &ClientMock{}
 //
 //		// make and configure a mocked oci.Client
 //		mockedClient := &ClientMock{
-//			BlobReaderFunc: func(ctx context.Context, ref string, desc ocispec.Descriptor) (*oci.BlobReader, error) {
+//			BlobReaderFunc: func(ctx context.Context, ref string, desc ocispec.Descriptor) (estargz.BlobSource, error) {
 //				panic("mock out the BlobReader method")
 //			},
 //			FetchBlobFunc: func(ctx context.Context, ref string, desc ocispec.Descriptor) (io.ReadCloser, error) {
@@ -42,7 +44,7 @@ var _ oci.Client = &ClientMock{}
 //			PushManifestFunc: func(ctx context.Context, ref string, desc ocispec.Descriptor, content []byte) error {
 //				panic("mock out the PushManifest method")
 //			},
-//			PushReferrerFunc: func(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) error {
+//			PushReferrerFunc: func(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) (digest.Digest, error) {
 //				panic("mock out the PushReferrer method")
 //			},
 //			ResolveManifestFunc: func(ctx context.Context, ref string) (ocispec.Descriptor, error) {
@@ -59,7 +61,7 @@ var _ oci.Client = &ClientMock{}
 //	}
 type ClientMock struct {
 	// BlobReaderFunc mocks the BlobReader method.
-	BlobReaderFunc func(ctx context.Context, ref string, desc ocispec.Descriptor) (*oci.BlobReader, error)
+	BlobReaderFunc func(ctx context.Context, ref string, desc ocispec.Descriptor) (estargz.BlobSource, error)
 
 	// FetchBlobFunc mocks the FetchBlob method.
 	FetchBlobFunc func(ctx context.Context, ref string, desc ocispec.Descriptor) (io.ReadCloser, error)
@@ -80,7 +82,7 @@ type ClientMock struct {
 	PushManifestFunc func(ctx context.Context, ref string, desc ocispec.Descriptor, content []byte) error
 
 	// PushReferrerFunc mocks the PushReferrer method.
-	PushReferrerFunc func(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) error
+	PushReferrerFunc func(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) (digest.Digest, error)
 
 	// ResolveManifestFunc mocks the ResolveManifest method.
 	ResolveManifestFunc func(ctx context.Context, ref string) (ocispec.Descriptor, error)
@@ -206,7 +208,7 @@ type ClientMock struct {
 }
 
 // BlobReader calls BlobReaderFunc.
-func (mock *ClientMock) BlobReader(ctx context.Context, ref string, desc ocispec.Descriptor) (*oci.BlobReader, error) {
+func (mock *ClientMock) BlobReader(ctx context.Context, ref string, desc ocispec.Descriptor) (estargz.BlobSource, error) {
 	if mock.BlobReaderFunc == nil {
 		panic("ClientMock.BlobReaderFunc: method is nil but Client.BlobReader was just called")
 	}
@@ -502,7 +504,7 @@ func (mock *ClientMock) PushManifestCalls() []struct {
 }
 
 // PushReferrer calls PushReferrerFunc.
-func (mock *ClientMock) PushReferrer(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) error {
+func (mock *ClientMock) PushReferrer(ctx context.Context, ref string, subject ocispec.Descriptor, artifact ocispec.Descriptor, content []byte) (digest.Digest, error) {
 	if mock.PushReferrerFunc == nil {
 		panic("ClientMock.PushReferrerFunc: method is nil but Client.PushReferrer was just called")
 	}

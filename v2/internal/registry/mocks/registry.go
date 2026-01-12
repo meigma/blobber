@@ -5,7 +5,7 @@ package mocks
 
 import (
 	"context"
-	"github.com/meigma/blobber/v2/internal/oci"
+	"github.com/meigma/blobber/v2/internal/estargz"
 	"github.com/meigma/blobber/v2/internal/registry"
 	"github.com/opencontainers/go-digest"
 	"io"
@@ -31,7 +31,10 @@ var _ registry.Registry = &RegistryMock{}
 //			FetchManifestFunc: func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error) {
 //				panic("mock out the FetchManifest method")
 //			},
-//			OpenBlobFunc: func(ctx context.Context, ref string) (*oci.BlobReader, error) {
+//			FetchReferrerContentFunc: func(ctx context.Context, ref string, referrerDigest digest.Digest) ([]byte, error) {
+//				panic("mock out the FetchReferrerContent method")
+//			},
+//			OpenBlobFunc: func(ctx context.Context, ref string) (estargz.BlobSource, error) {
 //				panic("mock out the OpenBlob method")
 //			},
 //			PushFunc: func(ctx context.Context, ref string, blob io.Reader, metadata registry.PushMetadata) (*registry.PushResult, error) {
@@ -53,8 +56,11 @@ type RegistryMock struct {
 	// FetchManifestFunc mocks the FetchManifest method.
 	FetchManifestFunc func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error)
 
+	// FetchReferrerContentFunc mocks the FetchReferrerContent method.
+	FetchReferrerContentFunc func(ctx context.Context, ref string, referrerDigest digest.Digest) ([]byte, error)
+
 	// OpenBlobFunc mocks the OpenBlob method.
-	OpenBlobFunc func(ctx context.Context, ref string) (*oci.BlobReader, error)
+	OpenBlobFunc func(ctx context.Context, ref string) (estargz.BlobSource, error)
 
 	// PushFunc mocks the Push method.
 	PushFunc func(ctx context.Context, ref string, blob io.Reader, metadata registry.PushMetadata) (*registry.PushResult, error)
@@ -90,6 +96,15 @@ type RegistryMock struct {
 			// Opts is the opts argument value.
 			Opts []registry.FetchOption
 		}
+		// FetchReferrerContent holds details about calls to the FetchReferrerContent method.
+		FetchReferrerContent []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ref is the ref argument value.
+			Ref string
+			// ReferrerDigest is the referrerDigest argument value.
+			ReferrerDigest digest.Digest
+		}
 		// OpenBlob holds details about calls to the OpenBlob method.
 		OpenBlob []struct {
 			// Ctx is the ctx argument value.
@@ -109,11 +124,12 @@ type RegistryMock struct {
 			Metadata registry.PushMetadata
 		}
 	}
-	lockAttachArtifact sync.RWMutex
-	lockFetchBlob      sync.RWMutex
-	lockFetchManifest  sync.RWMutex
-	lockOpenBlob       sync.RWMutex
-	lockPush           sync.RWMutex
+	lockAttachArtifact       sync.RWMutex
+	lockFetchBlob            sync.RWMutex
+	lockFetchManifest        sync.RWMutex
+	lockFetchReferrerContent sync.RWMutex
+	lockOpenBlob             sync.RWMutex
+	lockPush                 sync.RWMutex
 }
 
 // AttachArtifact calls AttachArtifactFunc.
@@ -240,8 +256,48 @@ func (mock *RegistryMock) FetchManifestCalls() []struct {
 	return calls
 }
 
+// FetchReferrerContent calls FetchReferrerContentFunc.
+func (mock *RegistryMock) FetchReferrerContent(ctx context.Context, ref string, referrerDigest digest.Digest) ([]byte, error) {
+	if mock.FetchReferrerContentFunc == nil {
+		panic("RegistryMock.FetchReferrerContentFunc: method is nil but Registry.FetchReferrerContent was just called")
+	}
+	callInfo := struct {
+		Ctx            context.Context
+		Ref            string
+		ReferrerDigest digest.Digest
+	}{
+		Ctx:            ctx,
+		Ref:            ref,
+		ReferrerDigest: referrerDigest,
+	}
+	mock.lockFetchReferrerContent.Lock()
+	mock.calls.FetchReferrerContent = append(mock.calls.FetchReferrerContent, callInfo)
+	mock.lockFetchReferrerContent.Unlock()
+	return mock.FetchReferrerContentFunc(ctx, ref, referrerDigest)
+}
+
+// FetchReferrerContentCalls gets all the calls that were made to FetchReferrerContent.
+// Check the length with:
+//
+//	len(mockedRegistry.FetchReferrerContentCalls())
+func (mock *RegistryMock) FetchReferrerContentCalls() []struct {
+	Ctx            context.Context
+	Ref            string
+	ReferrerDigest digest.Digest
+} {
+	var calls []struct {
+		Ctx            context.Context
+		Ref            string
+		ReferrerDigest digest.Digest
+	}
+	mock.lockFetchReferrerContent.RLock()
+	calls = mock.calls.FetchReferrerContent
+	mock.lockFetchReferrerContent.RUnlock()
+	return calls
+}
+
 // OpenBlob calls OpenBlobFunc.
-func (mock *RegistryMock) OpenBlob(ctx context.Context, ref string) (*oci.BlobReader, error) {
+func (mock *RegistryMock) OpenBlob(ctx context.Context, ref string) (estargz.BlobSource, error) {
 	if mock.OpenBlobFunc == nil {
 		panic("RegistryMock.OpenBlobFunc: method is nil but Registry.OpenBlob was just called")
 	}

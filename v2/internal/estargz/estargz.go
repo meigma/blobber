@@ -60,3 +60,13 @@ type SizedReaderAt interface {
 	io.ReaderAt
 	Size() int64
 }
+
+// BlobSource provides random access to a blob with cleanup.
+//
+// This interface combines SizedReaderAt for seekable access with io.Closer
+// for resource management. It is used by OCI client BlobReader and Registry
+// OpenBlob operations.
+type BlobSource interface {
+	SizedReaderAt
+	io.Closer
+}

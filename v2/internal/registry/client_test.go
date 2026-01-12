@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/meigma/blobber/v2/internal/estargz"
 	"github.com/meigma/blobber/v2/internal/oci"
 	"github.com/meigma/blobber/v2/internal/oci/mocks"
 )
@@ -521,7 +522,7 @@ func TestOpenBlob(t *testing.T) {
 			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
 				return manifestJSON, ocispec.Descriptor{Digest: digest.FromBytes(manifestJSON)}, nil
 			},
-			BlobReaderFunc: func(_ context.Context, _ string, desc ocispec.Descriptor) (*oci.BlobReader, error) {
+			BlobReaderFunc: func(_ context.Context, _ string, desc ocispec.Descriptor) (estargz.BlobSource, error) {
 				capturedDesc = desc
 				// Return error since we can't construct a real BlobReader in tests.
 				return nil, errors.New("mock")
@@ -561,7 +562,7 @@ func TestOpenBlob(t *testing.T) {
 			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
 				return manifestJSON, ocispec.Descriptor{Digest: digest.FromBytes(manifestJSON)}, nil
 			},
-			BlobReaderFunc: func(_ context.Context, _ string, _ ocispec.Descriptor) (*oci.BlobReader, error) {
+			BlobReaderFunc: func(_ context.Context, _ string, _ ocispec.Descriptor) (estargz.BlobSource, error) {
 				return nil, errors.New("blob reader creation failed")
 			},
 		}
@@ -599,6 +600,7 @@ func TestAttachArtifact(t *testing.T) {
 		t.Parallel()
 
 		subjectDigest := digest.FromBytes([]byte("manifest"))
+		expectedManifestDigest := digest.FromBytes([]byte("referrer-manifest"))
 
 		mock := &mocks.ClientMock{
 			ResolveManifestFunc: func(_ context.Context, _ string) (ocispec.Descriptor, error) {
@@ -607,11 +609,11 @@ func TestAttachArtifact(t *testing.T) {
 					Size:   100,
 				}, nil
 			},
-			PushReferrerFunc: func(_ context.Context, _ string, subject, artifact ocispec.Descriptor, content []byte) error {
+			PushReferrerFunc: func(_ context.Context, _ string, subject, artifact ocispec.Descriptor, content []byte) (digest.Digest, error) {
 				assert.Equal(t, subjectDigest, subject.Digest)
 				assert.Equal(t, artifactType, artifact.MediaType)
 				assert.Equal(t, artifactContent, content)
-				return nil
+				return expectedManifestDigest, nil
 			},
 		}
 
@@ -619,21 +621,22 @@ func TestAttachArtifact(t *testing.T) {
 		resultDigest, err := reg.AttachArtifact(context.Background(), testRef, artifactType, artifactContent, nil)
 
 		require.NoError(t, err)
-		assert.Equal(t, digest.FromBytes(artifactContent), resultDigest)
+		assert.Equal(t, expectedManifestDigest, resultDigest)
 	})
 
 	t.Run("success with annotations", func(t *testing.T) {
 		t.Parallel()
 
 		annotations := map[string]string{"key": "value"}
+		expectedManifestDigest := digest.FromBytes([]byte("referrer-manifest"))
 
 		mock := &mocks.ClientMock{
 			ResolveManifestFunc: func(_ context.Context, _ string) (ocispec.Descriptor, error) {
 				return ocispec.Descriptor{Digest: digest.FromBytes([]byte("manifest"))}, nil
 			},
-			PushReferrerFunc: func(_ context.Context, _ string, _, artifact ocispec.Descriptor, _ []byte) error {
+			PushReferrerFunc: func(_ context.Context, _ string, _, artifact ocispec.Descriptor, _ []byte) (digest.Digest, error) {
 				assert.Equal(t, annotations, artifact.Annotations)
-				return nil
+				return expectedManifestDigest, nil
 			},
 		}
 
@@ -641,7 +644,7 @@ func TestAttachArtifact(t *testing.T) {
 		resultDigest, err := reg.AttachArtifact(context.Background(), testRef, artifactType, artifactContent, annotations)
 
 		require.NoError(t, err)
-		assert.NotEmpty(t, resultDigest)
+		assert.Equal(t, expectedManifestDigest, resultDigest)
 	})
 
 	t.Run("error resolving manifest", func(t *testing.T) {
@@ -668,8 +671,8 @@ func TestAttachArtifact(t *testing.T) {
 			ResolveManifestFunc: func(_ context.Context, _ string) (ocispec.Descriptor, error) {
 				return ocispec.Descriptor{Digest: digest.FromBytes([]byte("manifest"))}, nil
 			},
-			PushReferrerFunc: func(_ context.Context, _ string, _, _ ocispec.Descriptor, _ []byte) error {
-				return errors.New("push referrer failed")
+			PushReferrerFunc: func(_ context.Context, _ string, _, _ ocispec.Descriptor, _ []byte) (digest.Digest, error) {
+				return "", errors.New("push referrer failed")
 			},
 		}
 
@@ -692,6 +695,202 @@ func TestAttachArtifact(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Empty(t, resultDigest)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+}
+
+func TestFetchReferrerContent(t *testing.T) {
+	t.Parallel()
+
+	const artifactContent = `{"signature": "abc123"}`
+	artifactDigest := digest.FromString(artifactContent)
+
+	// Build a valid referrer manifest JSON.
+	buildReferrerManifest := func(t *testing.T, layerDigest digest.Digest, layerSize int64) []byte {
+		t.Helper()
+		manifest := map[string]any{
+			"schemaVersion": 2,
+			"mediaType":     "application/vnd.oci.image.manifest.v1+json",
+			"config": map[string]any{
+				"mediaType": "application/vnd.oci.empty.v1+json",
+				"digest":    "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+				"size":      2,
+			},
+			"layers": []map[string]any{
+				{
+					"mediaType": "application/vnd.example.signature",
+					"digest":    layerDigest.String(),
+					"size":      layerSize,
+				},
+			},
+		}
+		data, err := json.Marshal(manifest)
+		require.NoError(t, err)
+		return data
+	}
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+
+		referrerManifest := buildReferrerManifest(t, artifactDigest, int64(len(artifactContent)))
+		referrerDigest := digest.FromBytes(referrerManifest)
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, ref string) ([]byte, ocispec.Descriptor, error) {
+				// Verify the digest reference is constructed correctly.
+				assert.Contains(t, ref, "@"+referrerDigest.String())
+				return referrerManifest, ocispec.Descriptor{Digest: referrerDigest}, nil
+			},
+			FetchBlobFunc: func(_ context.Context, _ string, desc ocispec.Descriptor) (io.ReadCloser, error) {
+				// Verify the layer digest is used.
+				assert.Equal(t, artifactDigest, desc.Digest)
+				return io.NopCloser(strings.NewReader(artifactContent)), nil
+			},
+		}
+
+		reg := New(mock)
+		content, err := reg.FetchReferrerContent(context.Background(), testRef, referrerDigest)
+
+		require.NoError(t, err)
+		assert.Equal(t, artifactContent, string(content))
+	})
+
+	t.Run("error fetching manifest", func(t *testing.T) {
+		t.Parallel()
+
+		referrerDigest := digest.FromString("test-manifest")
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				return nil, ocispec.Descriptor{}, oci.ErrNotFound
+			},
+		}
+
+		reg := New(mock)
+		content, err := reg.FetchReferrerContent(context.Background(), testRef, referrerDigest)
+
+		require.Error(t, err)
+		assert.Nil(t, content)
+		assert.Contains(t, err.Error(), "fetch referrer manifest")
+	})
+
+	t.Run("invalid manifest JSON", func(t *testing.T) {
+		t.Parallel()
+
+		referrerDigest := digest.FromString("test-manifest")
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				return []byte("not valid json"), ocispec.Descriptor{}, nil
+			},
+		}
+
+		reg := New(mock)
+		content, err := reg.FetchReferrerContent(context.Background(), testRef, referrerDigest)
+
+		require.Error(t, err)
+		assert.Nil(t, content)
+		assert.Contains(t, err.Error(), "parse referrer manifest")
+	})
+
+	t.Run("manifest with no layers", func(t *testing.T) {
+		t.Parallel()
+
+		noLayersManifest := []byte(`{
+			"schemaVersion": 2,
+			"mediaType": "application/vnd.oci.image.manifest.v1+json",
+			"config": {"mediaType": "application/vnd.oci.empty.v1+json", "digest": "sha256:abc", "size": 2},
+			"layers": []
+		}`)
+		referrerDigest := digest.FromBytes(noLayersManifest)
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				return noLayersManifest, ocispec.Descriptor{Digest: referrerDigest}, nil
+			},
+		}
+
+		reg := New(mock)
+		content, err := reg.FetchReferrerContent(context.Background(), testRef, referrerDigest)
+
+		require.Error(t, err)
+		assert.Nil(t, content)
+		assert.Contains(t, err.Error(), "expected 1 layer, got 0")
+	})
+
+	t.Run("manifest with multiple layers", func(t *testing.T) {
+		t.Parallel()
+
+		multiLayerManifest := []byte(`{
+			"schemaVersion": 2,
+			"mediaType": "application/vnd.oci.image.manifest.v1+json",
+			"config": {"mediaType": "application/vnd.oci.empty.v1+json", "digest": "sha256:abc", "size": 2},
+			"layers": [
+				{"mediaType": "application/octet-stream", "digest": "sha256:layer1", "size": 100},
+				{"mediaType": "application/octet-stream", "digest": "sha256:layer2", "size": 200}
+			]
+		}`)
+		referrerDigest := digest.FromBytes(multiLayerManifest)
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				return multiLayerManifest, ocispec.Descriptor{Digest: referrerDigest}, nil
+			},
+		}
+
+		reg := New(mock)
+		content, err := reg.FetchReferrerContent(context.Background(), testRef, referrerDigest)
+
+		require.Error(t, err)
+		assert.Nil(t, content)
+		assert.Contains(t, err.Error(), "expected 1 layer, got 2")
+	})
+
+	t.Run("error fetching blob", func(t *testing.T) {
+		t.Parallel()
+
+		referrerManifest := buildReferrerManifest(t, artifactDigest, int64(len(artifactContent)))
+		referrerDigest := digest.FromBytes(referrerManifest)
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				return referrerManifest, ocispec.Descriptor{Digest: referrerDigest}, nil
+			},
+			FetchBlobFunc: func(_ context.Context, _ string, _ ocispec.Descriptor) (io.ReadCloser, error) {
+				return nil, errors.New("blob fetch failed")
+			},
+		}
+
+		reg := New(mock)
+		content, err := reg.FetchReferrerContent(context.Background(), testRef, referrerDigest)
+
+		require.Error(t, err)
+		assert.Nil(t, content)
+		assert.Contains(t, err.Error(), "fetch referrer content")
+	})
+
+	t.Run("invalid reference", func(t *testing.T) {
+		t.Parallel()
+
+		reg := New(&mocks.ClientMock{})
+		content, err := reg.FetchReferrerContent(context.Background(), "not-a-valid-ref", digest.FromString("test"))
+
+		require.Error(t, err)
+		assert.Nil(t, content)
+		assert.Contains(t, err.Error(), "parse reference")
+	})
+
+	t.Run("context canceled", func(t *testing.T) {
+		t.Parallel()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		reg := New(&mocks.ClientMock{})
+		content, err := reg.FetchReferrerContent(ctx, testRef, digest.FromString("test"))
+
+		require.Error(t, err)
+		assert.Nil(t, content)
 		assert.ErrorIs(t, err, context.Canceled)
 	})
 }
