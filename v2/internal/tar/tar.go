@@ -14,11 +14,18 @@ import (
 	"io/fs"
 )
 
+// EntryFilter determines whether an entry should be extracted.
+// Return true to extract the entry, false to skip it.
+// The path is the entry's name from the tar header.
+// The isDir flag indicates whether the entry is a directory.
+type EntryFilter func(path string, isDir bool) bool
+
 // Extractor extracts tar archives to the filesystem.
 type Extractor interface {
 	// Extract reads tar entries from r and writes them to destDir.
 	// The implementation is responsible for path validation and limits.
-	Extract(ctx context.Context, r io.Reader, destDir string) error
+	// If filter is non-nil, only entries for which filter returns true are extracted.
+	Extract(ctx context.Context, r io.Reader, destDir string, filter EntryFilter) error
 }
 
 // PathValidator validates paths during tar extraction.

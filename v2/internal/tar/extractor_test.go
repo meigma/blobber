@@ -57,7 +57,6 @@ func TestNewExtractor(t *testing.T) {
 		e := NewExtractor(v,
 			WithExtractorLogger(nil),
 			WithLimits(Limits{MaxFiles: 10}),
-			WithEntryFilter(func(path string, isDir bool) bool { return true }),
 		)
 		require.NotNil(t, e)
 	})
@@ -133,7 +132,7 @@ func TestExtract(t *testing.T) {
 
 			v := newTestValidator()
 			e := NewExtractor(v)
-			err := e.Extract(context.Background(), archive, destDir)
+			err := e.Extract(context.Background(), archive, destDir, nil)
 			require.NoError(t, err)
 
 			// Verify files.
@@ -178,7 +177,7 @@ func TestExtract_Limits(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxFiles: 2}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrLimitExceeded)
@@ -194,7 +193,7 @@ func TestExtract_Limits(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxFileSize: 10}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrLimitExceeded)
@@ -212,7 +211,7 @@ func TestExtract_Limits(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxTotalSize: 12}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrLimitExceeded)
@@ -229,7 +228,7 @@ func TestExtract_Limits(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxFiles: 5, MaxFileSize: 100, MaxTotalSize: 100}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.NoError(t, err)
 	})
@@ -253,8 +252,8 @@ func TestExtract_EntryFilter(t *testing.T) {
 		}
 
 		v := newTestValidator()
-		e := NewExtractor(v, WithEntryFilter(filter))
-		err := e.Extract(context.Background(), archive, destDir)
+		e := NewExtractor(v)
+		err := e.Extract(context.Background(), archive, destDir, filter)
 		require.NoError(t, err)
 
 		// keep.txt should exist.
@@ -292,8 +291,8 @@ func TestExtract_EntryFilter(t *testing.T) {
 		}
 
 		v := newTestValidator()
-		e := NewExtractor(v, WithEntryFilter(filter))
-		err := e.Extract(context.Background(), archive, destDir)
+		e := NewExtractor(v)
+		err := e.Extract(context.Background(), archive, destDir, filter)
 		require.NoError(t, err)
 
 		require.Len(t, calls, 2)
@@ -317,7 +316,7 @@ func TestExtract_ContextCancellation(t *testing.T) {
 
 	v := newTestValidator()
 	e := NewExtractor(v)
-	err := e.Extract(ctx, archive, destDir)
+	err := e.Extract(ctx, archive, destDir, nil)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
@@ -363,7 +362,7 @@ func TestExtract_PathValidation(t *testing.T) {
 
 			v := newTestValidator()
 			e := NewExtractor(v)
-			err := e.Extract(context.Background(), archive, destDir)
+			err := e.Extract(context.Background(), archive, destDir, nil)
 
 			require.Error(t, err)
 			assert.ErrorIs(t, err, tt.wantErr)
@@ -395,7 +394,7 @@ func TestExtract_UnsupportedEntryTypes(t *testing.T) {
 
 			v := newTestValidator()
 			e := NewExtractor(v)
-			err := e.Extract(context.Background(), archive, destDir)
+			err := e.Extract(context.Background(), archive, destDir, nil)
 
 			require.Error(t, err)
 			assert.ErrorIs(t, err, ErrUnsupportedEntry)
@@ -416,7 +415,7 @@ func TestExtract_TypeRegA(t *testing.T) {
 	v := newTestValidator()
 	e := NewExtractor(v)
 
-	err := e.Extract(context.Background(), archive, destDir)
+	err := e.Extract(context.Background(), archive, destDir, nil)
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(filepath.Join(destDir, "oldstyle.txt"))
@@ -443,7 +442,7 @@ func TestExtract_DirectoryPermissions(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v)
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 		require.NoError(t, err)
 
 		info, err := os.Stat(filepath.Join(destDir, "subdir"))
@@ -467,7 +466,7 @@ func TestExtract_DirectoryPermissions(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v)
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 		require.NoError(t, err)
 
 		// Pre-existing directory should retain original permissions.
@@ -488,7 +487,7 @@ func TestExtract_DirectoryPermissions(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v)
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 		require.NoError(t, err)
 
 		info, err := os.Stat(filepath.Join(destDir, "a", "b"))
@@ -512,7 +511,7 @@ func TestExtract_MaxFilesCountsAllEntries(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxFiles: 2}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrLimitExceeded)
@@ -530,7 +529,7 @@ func TestExtract_MaxFilesCountsAllEntries(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxFiles: 2}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrLimitExceeded)
@@ -548,7 +547,7 @@ func TestExtract_MaxFilesCountsAllEntries(t *testing.T) {
 
 		v := newTestValidator()
 		e := NewExtractor(v, WithLimits(Limits{MaxFiles: 3}))
-		err := e.Extract(context.Background(), archive, destDir)
+		err := e.Extract(context.Background(), archive, destDir, nil)
 
 		require.NoError(t, err) // Exactly 3 entries.
 	})
@@ -573,8 +572,8 @@ func TestExtract_FilterWithContextCancellation(t *testing.T) {
 	}
 
 	v := newTestValidator()
-	e := NewExtractor(v, WithEntryFilter(filter))
-	err := e.Extract(ctx, archive, destDir)
+	e := NewExtractor(v)
+	err := e.Extract(ctx, archive, destDir, filter)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)

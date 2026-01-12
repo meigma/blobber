@@ -20,7 +20,7 @@ var _ tar.Extractor = &ExtractorMock{}
 //
 //		// make and configure a mocked tar.Extractor
 //		mockedExtractor := &ExtractorMock{
-//			ExtractFunc: func(ctx context.Context, r io.Reader, destDir string) error {
+//			ExtractFunc: func(ctx context.Context, r io.Reader, destDir string, filter tar.EntryFilter) error {
 //				panic("mock out the Extract method")
 //			},
 //		}
@@ -31,7 +31,7 @@ var _ tar.Extractor = &ExtractorMock{}
 //	}
 type ExtractorMock struct {
 	// ExtractFunc mocks the Extract method.
-	ExtractFunc func(ctx context.Context, r io.Reader, destDir string) error
+	ExtractFunc func(ctx context.Context, r io.Reader, destDir string, filter tar.EntryFilter) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -43,13 +43,15 @@ type ExtractorMock struct {
 			R io.Reader
 			// DestDir is the destDir argument value.
 			DestDir string
+			// Filter is the filter argument value.
+			Filter tar.EntryFilter
 		}
 	}
 	lockExtract sync.RWMutex
 }
 
 // Extract calls ExtractFunc.
-func (mock *ExtractorMock) Extract(ctx context.Context, r io.Reader, destDir string) error {
+func (mock *ExtractorMock) Extract(ctx context.Context, r io.Reader, destDir string, filter tar.EntryFilter) error {
 	if mock.ExtractFunc == nil {
 		panic("ExtractorMock.ExtractFunc: method is nil but Extractor.Extract was just called")
 	}
@@ -57,15 +59,17 @@ func (mock *ExtractorMock) Extract(ctx context.Context, r io.Reader, destDir str
 		Ctx     context.Context
 		R       io.Reader
 		DestDir string
+		Filter  tar.EntryFilter
 	}{
 		Ctx:     ctx,
 		R:       r,
 		DestDir: destDir,
+		Filter:  filter,
 	}
 	mock.lockExtract.Lock()
 	mock.calls.Extract = append(mock.calls.Extract, callInfo)
 	mock.lockExtract.Unlock()
-	return mock.ExtractFunc(ctx, r, destDir)
+	return mock.ExtractFunc(ctx, r, destDir, filter)
 }
 
 // ExtractCalls gets all the calls that were made to Extract.
@@ -76,11 +80,13 @@ func (mock *ExtractorMock) ExtractCalls() []struct {
 	Ctx     context.Context
 	R       io.Reader
 	DestDir string
+	Filter  tar.EntryFilter
 } {
 	var calls []struct {
 		Ctx     context.Context
 		R       io.Reader
 		DestDir string
+		Filter  tar.EntryFilter
 	}
 	mock.lockExtract.RLock()
 	calls = mock.calls.Extract

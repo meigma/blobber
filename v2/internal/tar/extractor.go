@@ -22,12 +22,6 @@ type Limits struct {
 	MaxTotalSize int64 // Maximum total extracted size in bytes (0 = unlimited)
 }
 
-// EntryFilter determines whether an entry should be extracted.
-// Return true to extract the entry, false to skip it.
-// The path is the entry's name from the tar header.
-// The isDir flag indicates whether the entry is a directory.
-type EntryFilter func(path string, isDir bool) bool
-
 // ExtractorOption configures an extractor.
 type ExtractorOption func(*extractor)
 
@@ -45,19 +39,10 @@ func WithLimits(limits Limits) ExtractorOption {
 	}
 }
 
-// WithEntryFilter sets an entry filter.
-// Entries for which the filter returns false are skipped.
-func WithEntryFilter(filter EntryFilter) ExtractorOption {
-	return func(e *extractor) {
-		e.filter = filter
-	}
-}
-
 type extractor struct {
 	logger    *slog.Logger
 	validator PathValidator
 	limits    Limits
-	filter    EntryFilter
 }
 
 // NewExtractor creates a new Extractor with the given validator and options.
@@ -75,7 +60,8 @@ func NewExtractor(validator PathValidator, opts ...ExtractorOption) *extractor {
 }
 
 // Extract reads tar entries from r and writes them to destDir.
-func (e *extractor) Extract(ctx context.Context, r io.Reader, destDir string) error {
+// If filter is non-nil, only entries for which filter returns true are extracted.
+func (e *extractor) Extract(ctx context.Context, r io.Reader, destDir string, filter EntryFilter) error {
 	root, err := os.OpenRoot(destDir)
 	if err != nil {
 		return fmt.Errorf("open root %s: %w", destDir, err)
@@ -101,7 +87,7 @@ func (e *extractor) Extract(ctx context.Context, r io.Reader, destDir string) er
 			return fmt.Errorf("read tar header: %w", err)
 		}
 
-		if err := e.processEntry(ctx, root, destDir, header, tr, state); err != nil {
+		if err := e.processEntry(ctx, root, destDir, header, tr, state, filter); err != nil {
 			return err
 		}
 	}
@@ -117,12 +103,12 @@ type extractState struct {
 	createdDirs map[string]struct{} // tracks dirs created by this extraction
 }
 
-func (e *extractor) processEntry(ctx context.Context, root *os.Root, destDir string, header *tar.Header, tr *tar.Reader, state *extractState) error {
+func (e *extractor) processEntry(ctx context.Context, root *os.Root, destDir string, header *tar.Header, tr *tar.Reader, state *extractState, filter EntryFilter) error {
 	path := header.Name
 	isDir := header.Typeflag == tar.TypeDir
 
-	// Apply filter if configured.
-	if e.filter != nil && !e.filter(path, isDir) {
+	// Apply filter if provided.
+	if filter != nil && !filter(path, isDir) {
 		e.logger.Debug("skipped by filter", "path", path)
 		return e.discardContent(ctx, header, tr)
 	}
