@@ -476,7 +476,7 @@ func (c *Client) Stream(ctx context.Context, ref string, opts ...StreamOption) (
 	// Fetch manifest to get blob digest and size.
 	// Note: Unlike Pull(), we always need the manifest for size, so RefCache
 	// doesn't help avoid this fetch.
-	manifest, err := c.registry.FetchManifest(ctx, ref)
+	manifest, err := c.registry.FetchManifest(ctx, ref, manifestFetchOptions(options.policy)...)
 	if err != nil {
 		return nil, fmt.Errorf("fetch manifest: %w", err)
 	}
@@ -536,6 +536,13 @@ func (c *Client) Stream(ctx context.Context, ref string, opts ...StreamOption) (
 	)
 
 	return handle, nil
+}
+
+func manifestFetchOptions(policy Policy) []registry.FetchOption {
+	if policy == nil {
+		return []registry.FetchOption{registry.WithoutReferrers()}
+	}
+	return nil
 }
 
 // AttachArtifact attaches content to a manifest as a referrer.
