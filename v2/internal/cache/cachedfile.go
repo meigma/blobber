@@ -181,6 +181,29 @@ func (f *cachedFile) tryPromote() {
 		}
 	}
 
+	unlock, ok, err := f.cache.TryLockBlob(f.blobDgst)
+	if err != nil {
+		f.logger.Warn("failed to lock cache dir, skipping caching",
+			"path", f.path,
+			"error", err,
+		)
+		return
+	}
+	if !ok {
+		f.logger.Debug("cache lock busy, skipping caching",
+			"path", f.path,
+		)
+		return
+	}
+	defer func() {
+		if unlockErr := unlock(); unlockErr != nil {
+			f.logger.Warn("failed to unlock cache dir",
+				"path", f.path,
+				"error", unlockErr,
+			)
+		}
+	}()
+
 	// Atomic rename to final location.
 	destPath := filepath.Join(f.cache.blobDir(f.blobDgst), f.path)
 

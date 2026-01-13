@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/opencontainers/go-digest"
 
@@ -377,6 +378,23 @@ func (c *Client) pullToCache(ctx context.Context, ref string, blobDigest digest.
 	}
 	defer localHandle.Close()
 
+	var unlock func() error
+	if locker, ok := c.fileCache.(cache.BlobLocker); ok {
+		lockerUnlock, lockErr := lockBlobWithContext(ctx, locker, blobDigest)
+		if lockErr != nil {
+			return nil, lockErr
+		}
+		unlock = lockerUnlock
+		defer func() {
+			if unlockErr := unlock(); unlockErr != nil {
+				c.logger.Warn("failed to unlock cache directory",
+					"digest", blobDigest,
+					"error", unlockErr,
+				)
+			}
+		}()
+	}
+
 	extractedSize, err := extractToDir(ctx, localHandle, cacheDir)
 	if err != nil {
 		return nil, fmt.Errorf("extract to cache: %w", err)
@@ -612,4 +630,22 @@ func detectMediaType(f *os.File) (string, error) {
 	}
 
 	return "", errors.New("unknown compression format")
+}
+
+const lockRetryDelay = 25 * time.Millisecond
+
+func lockBlobWithContext(ctx context.Context, locker cache.BlobLocker, d digest.Digest) (func() error, error) {
+	for {
+		unlock, ok, err := locker.TryLockBlob(d)
+		if err != nil {
+			return nil, fmt.Errorf("lock cache dir: %w", err)
+		}
+		if ok {
+			return unlock, nil
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		time.Sleep(lockRetryDelay)
+	}
 }

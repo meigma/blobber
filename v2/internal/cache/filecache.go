@@ -46,6 +46,16 @@ func (c *fileCache) Dir(d digest.Digest) (string, error) {
 	return dir, nil
 }
 
+// LockBlob acquires an exclusive lock for cache mutations.
+func (c *fileCache) LockBlob(d digest.Digest) (func() error, error) {
+	return lockDir(c.blobDir(d))
+}
+
+// TryLockBlob attempts to acquire a lock without blocking.
+func (c *fileCache) TryLockBlob(d digest.Digest) (func() error, bool, error) {
+	return tryLockDir(c.blobDir(d))
+}
+
 // IsComplete returns true if the digest has been fully cached.
 func (c *fileCache) IsComplete(d digest.Digest) bool {
 	c.mu.RLock()

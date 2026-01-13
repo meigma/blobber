@@ -109,8 +109,15 @@ func removeEntries(ctx context.Context, toRemove map[string]bool) error {
 			return ctx.Err()
 		default:
 		}
+		unlock, ok, err := tryLockDir(dir)
+		if err != nil || !ok {
+			continue
+		}
 		// Errors are ignored - partial cleanup is acceptable.
 		os.RemoveAll(dir)
+		if unlock != nil {
+			_ = unlock()
+		}
 	}
 	return nil
 }

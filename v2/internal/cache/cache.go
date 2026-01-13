@@ -49,6 +49,15 @@ type ManifestCache interface {
 	Store(d digest.Digest, raw []byte) error
 }
 
+// BlobLocker coordinates cache mutations for a blob.
+//
+// LockBlob acquires an exclusive lock for cache writes and pruning. TryLockBlob
+// returns ok=false when the lock is held by another process.
+type BlobLocker interface {
+	LockBlob(d digest.Digest) (unlock func() error, err error)
+	TryLockBlob(d digest.Digest) (unlock func() error, ok bool, err error)
+}
+
 // FileCache caches extracted files by blob digest.
 //
 // Files are stored under their blob's digest, preserving directory structure.
