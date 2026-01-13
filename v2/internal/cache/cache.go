@@ -64,6 +64,7 @@ type FileCache interface {
 
 	// Get returns a cached file if it exists.
 	// Returns fs.ErrNotExist if the file is not cached.
+	// Cached files may exist even when the blob isn't complete.
 	// Updates the last access time for LRU tracking.
 	Get(d digest.Digest, path string) (fs.File, error)
 

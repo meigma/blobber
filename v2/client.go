@@ -353,12 +353,13 @@ func (c *Client) pullToCache(ctx context.Context, ref string, blobDigest digest.
 	}
 	defer localHandle.Close()
 
-	if err := extractToDir(ctx, localHandle, cacheDir); err != nil {
+	extractedSize, err := extractToDir(ctx, localHandle, cacheDir)
+	if err != nil {
 		return nil, fmt.Errorf("extract to cache: %w", err)
 	}
 
 	// Mark cache as complete.
-	if err := c.fileCache.MarkComplete(blobDigest, blobSize); err != nil {
+	if err := c.fileCache.MarkComplete(blobDigest, extractedSize); err != nil {
 		c.logger.Warn("failed to mark cache complete",
 			"digest", blobDigest,
 			"error", err,
@@ -500,9 +501,11 @@ func (c *Client) AttachArtifact(ctx context.Context, ref, artifactType string, c
 	return c.registry.AttachArtifact(ctx, ref, artifactType, content, annotations)
 }
 
-// extractToDir extracts all files from an fs.FS to a directory.
-func extractToDir(ctx context.Context, src fs.FS, dst string) error {
-	return fs.WalkDir(src, ".", func(path string, d fs.DirEntry, walkErr error) error {
+// extractToDir extracts all files from an fs.FS to a directory and returns total bytes written.
+func extractToDir(ctx context.Context, src fs.FS, dst string) (int64, error) {
+	var total int64
+
+	err := fs.WalkDir(src, ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -536,12 +539,19 @@ func extractToDir(ctx context.Context, src fs.FS, dst string) error {
 		}
 		defer dstFile.Close()
 
-		if _, err := io.Copy(dstFile, srcFile); err != nil {
+		n, err := io.Copy(dstFile, srcFile)
+		if err != nil {
 			return fmt.Errorf("copy %s: %w", path, err)
 		}
+		total += n
 
 		return nil
 	})
+	if err != nil {
+		return 0, err
+	}
+
+	return total, nil
 }
 
 // referrerFetcher implements ReferrerFetcher by delegating to the registry.

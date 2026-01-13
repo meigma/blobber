@@ -136,7 +136,7 @@ func loadCacheEntries(blobsDir string) ([]cacheEntry, error) {
 
 		data, err := os.ReadFile(cachePath) //nolint:gosec // path is from internal directory listing
 		if err != nil {
-			// Skip directories without cache.json (incomplete or orphaned).
+			// Skip directories without cache.json (untracked entries).
 			continue
 		}
 

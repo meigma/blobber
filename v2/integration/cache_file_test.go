@@ -5,10 +5,12 @@ package integration
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -134,6 +136,100 @@ func TestFileCache_Stream_OnDemandCaching(t *testing.T) {
 	assert.NoError(t, err, "file should be cached after full read")
 }
 
+func TestFileCache_StreamServesFromCache(t *testing.T) {
+	ctx := testutils.TestContext(t)
+	ref := registry.TestRef(t, "blob")
+	srcFS := testutils.TestFS()
+	cacheDir := t.TempDir()
+
+	client := blobber.NewClient(
+		blobber.WithPlainHTTP(true),
+		blobber.WithFileCache(cacheDir),
+	)
+
+	// Push.
+	result, err := client.Push(ctx, ref, srcFS)
+	require.NoError(t, err)
+
+	// Stream and read a single file fully to cache it.
+	handle1, err := client.Stream(ctx, ref)
+	require.NoError(t, err)
+
+	f, err := handle1.Open("hello.txt")
+	require.NoError(t, err)
+	content, err := readAll(f)
+	require.NoError(t, err)
+	f.Close()
+	handle1.Close()
+
+	assert.Equal(t, "Hello, World!", string(content))
+
+	blobCacheDir := fileCacheDir(cacheDir, result.Manifest.Blob.Digest.String())
+	cachedFile := filepath.Join(blobCacheDir, "hello.txt")
+	_, err = os.Stat(cachedFile)
+	require.NoError(t, err, "file should be cached after full read")
+
+	// Modify cached file to prove second stream reads from cache.
+	err = os.WriteFile(cachedFile, []byte("Modified!"), 0o644)
+	require.NoError(t, err)
+
+	handle2, err := client.Stream(ctx, ref)
+	require.NoError(t, err)
+	t.Cleanup(func() { handle2.Close() })
+
+	f2, err := handle2.Open("hello.txt")
+	require.NoError(t, err)
+	content2, err := readAll(f2)
+	require.NoError(t, err)
+	f2.Close()
+
+	assert.Equal(t, "Modified!", string(content2))
+}
+
+func TestFileCache_PartialEntryPruned(t *testing.T) {
+	ctx := testutils.TestContext(t)
+	ref := registry.TestRef(t, "blob")
+	srcFS := testutils.TestFS()
+	cacheDir := t.TempDir()
+
+	client := blobber.NewClient(
+		blobber.WithPlainHTTP(true),
+		blobber.WithFileCache(cacheDir),
+	)
+
+	// Push.
+	result, err := client.Push(ctx, ref, srcFS)
+	require.NoError(t, err)
+
+	// Stream and read a single file fully to create a partial cache entry.
+	handle, err := client.Stream(ctx, ref)
+	require.NoError(t, err)
+
+	f, err := handle.Open("hello.txt")
+	require.NoError(t, err)
+	_, err = readAll(f)
+	require.NoError(t, err)
+	f.Close()
+	handle.Close()
+
+	blobCacheDir := fileCacheDir(cacheDir, result.Manifest.Blob.Digest.String())
+	cacheJSON := filepath.Join(blobCacheDir, "cache.json")
+
+	entry := readFileCacheEntry(t, cacheJSON)
+	entry.LastAccessed = time.Now().Add(-2 * time.Hour)
+	complete := false
+	entry.Complete = &complete
+	writeFileCacheEntry(t, cacheJSON, entry)
+
+	err = blobber.PruneFileCache(ctx, cacheDir, blobber.PruneStrategy{
+		MaxAge: 1 * time.Hour,
+	})
+	require.NoError(t, err)
+
+	_, err = os.Stat(blobCacheDir)
+	assert.True(t, os.IsNotExist(err), "partial cache should be removed")
+}
+
 func TestFileCache_Stream_CopyTo(t *testing.T) {
 	ctx := testutils.TestContext(t)
 	ref := registry.TestRef(t, "blob")
@@ -221,4 +317,30 @@ func readAll(f fs.File) ([]byte, error) {
 		}
 	}
 	return content, nil
+}
+
+type fileCacheEntry struct {
+	Digest       string    `json:"digest"`
+	Size         int64     `json:"size"`
+	LastAccessed time.Time `json:"lastAccessed"`
+	Complete     *bool     `json:"complete,omitempty"`
+}
+
+func readFileCacheEntry(t *testing.T, path string) fileCacheEntry {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	var entry fileCacheEntry
+	require.NoError(t, json.Unmarshal(data, &entry))
+	return entry
+}
+
+func writeFileCacheEntry(t *testing.T, path string, entry fileCacheEntry) {
+	t.Helper()
+
+	data, err := json.MarshalIndent(entry, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0o644))
 }

@@ -51,6 +51,11 @@ func TestCachedFile_FullRead(t *testing.T) {
 	cachedContent, err := os.ReadFile(cachedPath)
 	require.NoError(t, err)
 	assert.Equal(t, content, cachedContent)
+
+	entry, err := fileCache.loadEntry(blobDigest)
+	require.NoError(t, err)
+	assert.False(t, isCompleteEntry(entry))
+	assert.Equal(t, int64(len(content)), entry.Size)
 }
 
 func TestCachedFile_PartialRead(t *testing.T) {
@@ -90,6 +95,9 @@ func TestCachedFile_PartialRead(t *testing.T) {
 	cachedPath := filepath.Join(fileCache.blobDir(blobDigest), "partial.txt")
 	_, err = os.Stat(cachedPath)
 	assert.True(t, os.IsNotExist(err), "partial read should not cache file")
+
+	_, err = fileCache.loadEntry(blobDigest)
+	assert.True(t, os.IsNotExist(err), "partial read should not create cache metadata")
 }
 
 func TestCachedFile_ChecksumMismatch(t *testing.T) {
@@ -129,6 +137,9 @@ func TestCachedFile_ChecksumMismatch(t *testing.T) {
 	cachedPath := filepath.Join(fileCache.blobDir(blobDigest), "checksum.txt")
 	_, err = os.Stat(cachedPath)
 	assert.True(t, os.IsNotExist(err), "checksum mismatch should not cache file")
+
+	_, err = fileCache.loadEntry(blobDigest)
+	assert.True(t, os.IsNotExist(err), "checksum mismatch should not create cache metadata")
 }
 
 func TestCachedFile_ChecksumMatch(t *testing.T) {

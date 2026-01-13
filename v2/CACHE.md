@@ -8,6 +8,10 @@ The v1 cache attempted partial blob caching (arbitrary byte ranges, download res
 
 **v2 takes a simpler approach: cache complete files only.**
 
+Files are cached only when fully read and verified. A blob may still be
+partially cached (some files present, others missing), but there is no
+partial-file state tracking.
+
 - No partial state tracking
 - No range merging
 - No download resumption
@@ -36,7 +40,8 @@ Caches extracted files by digest. Digest-addressed content is immutable, so no T
 
 **Behavior:**
 - Files are stored under their blob's digest
-- Cache check is simple: file exists at path? Return it.
+- Cache check is simple: file exists at path? Return it (even if the blob isn't complete).
+- Blob completeness is tracked separately for Pull() fast-paths.
 - Pruning uses LRU based on last access time
 
 ## Public API
@@ -74,7 +79,7 @@ type PruneStrategy struct {
 
   blobs/
     <hash>/                    # SHA256 hash of digest string (filesystem-safe)
-      cache.json               # { "digest": "sha256:abc", "size": 12345, "lastAccessed": "2024-01-01T00:00:00Z" }
+      cache.json               # { "digest": "sha256:abc", "size": 12345, "lastAccessed": "2024-01-01T00:00:00Z", "complete": true }
       config.yaml              # Extracted file
       data/
         settings.json          # Extracted file (preserves directory structure)
@@ -83,7 +88,7 @@ type PruneStrategy struct {
 **Notes:**
 - Ref and digest strings are hashed for filesystem safety (avoids `/`, `:`, `@` issues)
 - Original ref/digest stored inside cache.json for debugging/inspection
-- Size recorded at write time to avoid recalculating during prune
+- Size recorded at write time to avoid recalculating during prune (total cached bytes)
 
 ## Package Structure
 

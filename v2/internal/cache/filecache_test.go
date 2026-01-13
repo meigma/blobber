@@ -75,7 +75,7 @@ func TestFileCache_Get_NotCached(t *testing.T) {
 	assert.ErrorIs(t, err, fs.ErrNotExist)
 }
 
-func TestFileCache_Get_NotComplete(t *testing.T) {
+func TestFileCache_Get_PartialCache(t *testing.T) {
 	t.Parallel()
 
 	cacheDir := t.TempDir()
@@ -91,9 +91,17 @@ func TestFileCache_Get_NotComplete(t *testing.T) {
 	err = os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0o644)
 	require.NoError(t, err)
 
-	// Should fail because blob is not marked complete.
-	_, err = cache.Get(d, "file.txt")
-	assert.ErrorIs(t, err, fs.ErrNotExist)
+	// Should succeed even though blob is not marked complete.
+	f, err := cache.Get(d, "file.txt")
+	require.NoError(t, err)
+	f.Close()
+
+	// Blob should still be incomplete.
+	assert.False(t, cache.IsComplete(d))
+
+	entry, err := cache.(*fileCache).loadEntry(d)
+	require.NoError(t, err)
+	assert.False(t, isCompleteEntry(entry))
 }
 
 func TestFileCache_Get_Success(t *testing.T) {
@@ -176,6 +184,49 @@ func TestFileCache_Get_FileNotFound(t *testing.T) {
 	// Get should fail for nonexistent file.
 	_, err = cache.Get(d, "nonexistent.txt")
 	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestFileCache_Get_DotPath(t *testing.T) {
+	t.Parallel()
+
+	cache, err := NewFileCache(t.TempDir())
+	require.NoError(t, err)
+
+	d := digest.FromString("test-blob")
+
+	// Dot path should never be served from cache.
+	_, err = cache.Get(d, ".")
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestFileCache_Get_Directory(t *testing.T) {
+	t.Parallel()
+
+	cache, err := NewFileCache(t.TempDir())
+	require.NoError(t, err)
+
+	d := digest.FromString("test-blob")
+
+	dir, err := cache.Dir(d)
+	require.NoError(t, err)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "dir"), 0o700))
+
+	// Directories are not returned from cache.
+	_, err = cache.Get(d, "dir")
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestFileCache_Get_InvalidPath(t *testing.T) {
+	t.Parallel()
+
+	cache, err := NewFileCache(t.TempDir())
+	require.NoError(t, err)
+
+	d := digest.FromString("test-blob")
+
+	_, err = cache.Get(d, "../escape.txt")
+	assert.ErrorIs(t, err, fs.ErrInvalid)
 }
 
 func TestFileCache_TouchAccess(t *testing.T) {

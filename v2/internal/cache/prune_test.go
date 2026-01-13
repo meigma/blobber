@@ -285,6 +285,31 @@ func TestPruneFileCache_SkipsIncompleteEntries(t *testing.T) {
 	assert.NoError(t, err, "incomplete directory should remain")
 }
 
+func TestPruneFileCache_PartialEntry(t *testing.T) {
+	t.Parallel()
+
+	cacheDir := t.TempDir()
+	blobsDir := filepath.Join(cacheDir, "blobs")
+	require.NoError(t, os.MkdirAll(blobsDir, 0o700))
+
+	partialDir := filepath.Join(blobsDir, "partial")
+	require.NoError(t, os.MkdirAll(partialDir, 0o700))
+	writeEntry(t, partialDir, blobEntry{
+		Digest:       "sha256:partial",
+		Size:         100,
+		LastAccessed: time.Now().Add(-2 * time.Hour),
+		Complete:     boolPtr(false),
+	})
+
+	err := PruneFileCache(context.Background(), cacheDir, PruneStrategy{
+		MaxAge: 1 * time.Hour,
+	})
+	require.NoError(t, err)
+
+	_, err = os.Stat(partialDir)
+	assert.True(t, os.IsNotExist(err), "partial entry should be removed")
+}
+
 // writeEntry writes a blobEntry to cache.json in the given directory.
 func writeEntry(t *testing.T, dir string, entry blobEntry) {
 	t.Helper()

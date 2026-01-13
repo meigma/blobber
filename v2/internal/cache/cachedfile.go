@@ -210,6 +210,13 @@ func (f *cachedFile) tryPromote() {
 		"path", f.path,
 		"size", f.read,
 	)
+
+	if err := f.cache.recordCachedFile(f.blobDgst, f.read); err != nil {
+		f.logger.Warn("failed to update cache metadata",
+			"path", f.path,
+			"error", err,
+		)
+	}
 }
 
 // computeFileChecksum computes SHA256 checksum in OCI digest format.
