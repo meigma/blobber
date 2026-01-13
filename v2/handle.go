@@ -151,13 +151,11 @@ func newLocalHandle(ctx context.Context, tempPath string) (*BlobHandle, error) {
 // newNetworkHandle creates a BlobHandle backed by network range requests.
 //
 // The src provides random access to the blob for TOC-based file reads.
+// The TOC is parsed lazily on first access to avoid unnecessary network fetches.
 // The fetchFull function is called by CopyTo to fetch the entire blob
 // in one request rather than per-file range requests.
 func newNetworkHandle(ctx context.Context, src estargz.BlobSource, fetchFull func() (io.ReadCloser, error)) (*BlobHandle, error) {
-	reader, err := estargz.NewReader(ctx, src)
-	if err != nil {
-		return nil, err
-	}
+	reader := estargz.NewLazyReader(ctx, src)
 
 	return &BlobHandle{
 		ctx:       ctx,

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"path"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/containerd/stargz-snapshotter/estargz"
@@ -27,6 +28,15 @@ type reader struct {
 	sr     *estargz.Reader
 }
 
+type lazyReader struct {
+	ctx    context.Context
+	logger *slog.Logger
+	src    SizedReaderAt
+	once   sync.Once
+	reader Reader
+	err    error
+}
+
 // ReaderOption configures a Reader.
 type ReaderOption func(*readerConfig)
 
@@ -41,18 +51,26 @@ func WithReaderLogger(logger *slog.Logger) ReaderOption {
 	}
 }
 
+// NewLazyReader creates a Reader that parses the TOC on first access.
+//
+// This is useful for network-backed readers where the TOC fetch can be skipped
+// if all requests are satisfied from cache.
+func NewLazyReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) Reader {
+	cfg := newReaderConfig(opts)
+
+	return &lazyReader{
+		ctx:    ctx,
+		logger: cfg.logger,
+		src:    src,
+	}
+}
+
 // NewReader creates a new Reader from a SizedReaderAt.
 //
 // The TOC is parsed eagerly. If parsing fails, an error is returned.
 // The provided context is stored and used for all subsequent read operations.
 func NewReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) (Reader, error) {
-	cfg := &readerConfig{}
-	for _, opt := range opts {
-		opt(cfg)
-	}
-	if cfg.logger == nil {
-		cfg.logger = slog.New(slog.DiscardHandler)
-	}
+	cfg := newReaderConfig(opts)
 
 	// Create a section reader for the estargz library.
 	sr := io.NewSectionReader(src, 0, src.Size())
@@ -71,6 +89,57 @@ func NewReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) (Re
 		logger: cfg.logger,
 		sr:     esr,
 	}, nil
+}
+
+func newReaderConfig(opts []ReaderOption) *readerConfig {
+	cfg := &readerConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.logger == nil {
+		cfg.logger = slog.New(slog.DiscardHandler)
+	}
+	return cfg
+}
+
+func (r *lazyReader) Open(name string) (fs.File, error) {
+	if err := r.ensure(); err != nil {
+		return nil, err
+	}
+	return r.reader.Open(name)
+}
+
+func (r *lazyReader) Stat(name string) (fs.FileInfo, error) {
+	if err := r.ensure(); err != nil {
+		return nil, err
+	}
+	return r.reader.Stat(name)
+}
+
+func (r *lazyReader) ReadDir(name string) ([]fs.DirEntry, error) {
+	if err := r.ensure(); err != nil {
+		return nil, err
+	}
+	return r.reader.ReadDir(name)
+}
+
+func (r *lazyReader) Close() error {
+	if r.reader == nil {
+		return nil
+	}
+	return r.reader.Close()
+}
+
+func (r *lazyReader) ensure() error {
+	r.once.Do(func() {
+		reader, err := NewReader(r.ctx, r.src, WithReaderLogger(r.logger))
+		if err != nil {
+			r.err = err
+			return
+		}
+		r.reader = reader
+	})
+	return r.err
 }
 
 // Open opens the named file.

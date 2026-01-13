@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"sync"
 	"testing"
 	"testing/fstest"
 
@@ -26,6 +27,25 @@ func newSizedReader(data []byte) *sizedReader {
 }
 
 func (sr *sizedReader) Size() int64 { return sr.size }
+
+type countingReader struct {
+	*sizedReader
+	mu    sync.Mutex
+	reads int
+}
+
+func (cr *countingReader) ReadAt(p []byte, off int64) (int, error) {
+	cr.mu.Lock()
+	cr.reads++
+	cr.mu.Unlock()
+	return cr.sizedReader.ReadAt(p, off)
+}
+
+func (cr *countingReader) ReadCount() int {
+	cr.mu.Lock()
+	defer cr.mu.Unlock()
+	return cr.reads
+}
 
 func TestReader_Open(t *testing.T) {
 	t.Parallel()
@@ -84,6 +104,26 @@ func TestReader_Open(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, fs.ErrNotExist)
 	})
+}
+
+func TestLazyReader_DefersTOC(t *testing.T) {
+	t.Parallel()
+
+	src := fstest.MapFS{
+		"file.txt": &fstest.MapFile{Data: []byte("lazy content"), Mode: 0o644},
+	}
+
+	blob := buildTestBlob(t, src)
+	counter := &countingReader{sizedReader: newSizedReader(blob)}
+
+	reader := NewLazyReader(context.Background(), counter)
+
+	assert.Equal(t, 0, counter.ReadCount(), "lazy reader should not read before access")
+
+	info, err := reader.Stat("file.txt")
+	require.NoError(t, err)
+	assert.Equal(t, "file.txt", info.Name())
+	assert.Greater(t, counter.ReadCount(), 0, "lazy reader should read on first access")
 }
 
 func TestReader_Stat(t *testing.T) {
