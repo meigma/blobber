@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/containerd/stargz-snapshotter/estargz"
+	"github.com/containerd/stargz-snapshotter/estargz/zstdchunked"
 )
 
 // Compile-time interface check.
@@ -57,7 +58,8 @@ func NewReader(ctx context.Context, src SizedReaderAt, opts ...ReaderOption) (Re
 	sr := io.NewSectionReader(src, 0, src.Size())
 
 	// Parse the TOC eagerly.
-	esr, err := estargz.Open(sr)
+	// Include zstd decompressor to support both gzip and zstd compression.
+	esr, err := estargz.Open(sr, estargz.WithDecompressors(new(zstdchunked.Decompressor)))
 	if err != nil {
 		return nil, fmt.Errorf("parse estargz: %w", err)
 	}

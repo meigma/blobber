@@ -263,6 +263,14 @@ func (c *Client) Pull(ctx context.Context, ref string, opts ...PullOption) (*Blo
 		}
 	}
 
+	// Populate RefCache if configured, even without FileCache.
+	// This allows subsequent Pull/Stream calls to benefit from cached ref resolution.
+	if c.refCache != nil && c.fileCache == nil {
+		if _, err := c.resolveRef(ctx, ref); err != nil {
+			return nil, fmt.Errorf("resolve ref: %w", err)
+		}
+	}
+
 	// Check file cache for hit using resolveRef (benefits from RefCache).
 	if c.fileCache != nil {
 		blobDigest, resolveErr := c.resolveRef(ctx, ref)
