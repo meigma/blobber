@@ -8,6 +8,9 @@ import (
 	"os"
 	"sync/atomic"
 
+	"github.com/opencontainers/go-digest"
+
+	"github.com/meigma/blobber/v2/internal/cache"
 	"github.com/meigma/blobber/v2/internal/estargz"
 )
 
@@ -25,6 +28,10 @@ type BlobHandle struct {
 	closer    func() error
 	streamAll func() (io.ReadCloser, error)
 	closed    atomic.Bool
+
+	// Cache fields for on-demand file caching (used by Stream).
+	fileCache  cache.FileCache
+	blobDigest digest.Digest
 }
 
 // Open implements fs.FS.
@@ -32,7 +39,35 @@ func (h *BlobHandle) Open(name string) (fs.File, error) {
 	if h.closed.Load() {
 		return nil, fs.ErrClosed
 	}
-	return h.reader.Open(name)
+
+	// Check file cache first (if configured).
+	if h.fileCache != nil && h.blobDigest != "" {
+		if f, err := h.fileCache.Get(h.blobDigest, name); err == nil {
+			// Cache hit - return cached file.
+			return f, nil
+		}
+		// Cache miss - continue to open from reader.
+	}
+
+	// Open from reader (network or local).
+	f, err := h.reader.Open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wrap with caching tee if cache configured.
+	if h.fileCache != nil && h.blobDigest != "" {
+		// Get file size from Stat for the wrapper.
+		info, statErr := f.Stat()
+		if statErr == nil && !info.IsDir() {
+			// Wrap regular files for caching.
+			// Note: checksum verification is skipped (empty string) for simplicity.
+			// The registry already verifies blob checksums.
+			f = h.fileCache.WrapFile(h.blobDigest, name, f, info.Size(), "")
+		}
+	}
+
+	return f, nil
 }
 
 // Stat implements fs.StatFS.
@@ -129,5 +164,61 @@ func newNetworkHandle(ctx context.Context, src estargz.BlobSource, fetchFull fun
 		reader:    reader,
 		closer:    src.Close,
 		streamAll: fetchFull,
+	}, nil
+}
+
+// dirReader implements estargz.Reader by wrapping a directory.
+//
+// This provides fs.FS access to extracted files in a cache directory,
+// without the overhead of reading through an estargz archive.
+type dirReader struct {
+	path string
+	fsys fs.FS
+}
+
+// newDirReader creates a reader backed by a directory.
+func newDirReader(path string) *dirReader {
+	return &dirReader{
+		path: path,
+		fsys: os.DirFS(path),
+	}
+}
+
+// Open implements fs.FS.
+func (r *dirReader) Open(name string) (fs.File, error) {
+	return r.fsys.Open(name)
+}
+
+// Stat implements fs.StatFS.
+func (r *dirReader) Stat(name string) (fs.FileInfo, error) {
+	return fs.Stat(r.fsys, name)
+}
+
+// ReadDir implements fs.ReadDirFS.
+func (r *dirReader) ReadDir(name string) ([]fs.DirEntry, error) {
+	return fs.ReadDir(r.fsys, name)
+}
+
+// Close implements io.Closer. For directory-backed readers, this is a no-op.
+func (r *dirReader) Close() error {
+	return nil
+}
+
+// newDirHandle creates a BlobHandle backed by a directory of extracted files.
+//
+// This is used when serving from the file cache. The directory is not deleted
+// on Close since it's managed by the cache.
+func newDirHandle(ctx context.Context, dirPath string) (*BlobHandle, error) {
+	reader := newDirReader(dirPath)
+
+	return &BlobHandle{
+		ctx:    ctx,
+		reader: reader,
+		closer: nil, // Directory is managed by cache, not deleted on close.
+		streamAll: func() (io.ReadCloser, error) {
+			// For CopyTo on a dir-backed handle, we could walk and tar,
+			// but it's simpler to just error - CopyTo should use the cache dir directly.
+			return nil, fs.ErrInvalid
+		},
 	}, nil
 }

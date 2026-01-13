@@ -28,6 +28,9 @@ var _ registry.Registry = &RegistryMock{}
 //			FetchBlobFunc: func(ctx context.Context, ref string) (io.ReadCloser, error) {
 //				panic("mock out the FetchBlob method")
 //			},
+//			FetchBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
+//				panic("mock out the FetchBlobByDigest method")
+//			},
 //			FetchManifestFunc: func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error) {
 //				panic("mock out the FetchManifest method")
 //			},
@@ -37,8 +40,14 @@ var _ registry.Registry = &RegistryMock{}
 //			OpenBlobFunc: func(ctx context.Context, ref string) (estargz.BlobSource, error) {
 //				panic("mock out the OpenBlob method")
 //			},
+//			OpenBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (estargz.BlobSource, error) {
+//				panic("mock out the OpenBlobByDigest method")
+//			},
 //			PushFunc: func(ctx context.Context, ref string, blob io.Reader, metadata registry.PushMetadata) (*registry.PushResult, error) {
 //				panic("mock out the Push method")
+//			},
+//			ResolveRefFunc: func(ctx context.Context, ref string) (digest.Digest, error) {
+//				panic("mock out the ResolveRef method")
 //			},
 //		}
 //
@@ -53,6 +62,9 @@ type RegistryMock struct {
 	// FetchBlobFunc mocks the FetchBlob method.
 	FetchBlobFunc func(ctx context.Context, ref string) (io.ReadCloser, error)
 
+	// FetchBlobByDigestFunc mocks the FetchBlobByDigest method.
+	FetchBlobByDigestFunc func(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error)
+
 	// FetchManifestFunc mocks the FetchManifest method.
 	FetchManifestFunc func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error)
 
@@ -62,8 +74,14 @@ type RegistryMock struct {
 	// OpenBlobFunc mocks the OpenBlob method.
 	OpenBlobFunc func(ctx context.Context, ref string) (estargz.BlobSource, error)
 
+	// OpenBlobByDigestFunc mocks the OpenBlobByDigest method.
+	OpenBlobByDigestFunc func(ctx context.Context, ref string, d digest.Digest, size int64) (estargz.BlobSource, error)
+
 	// PushFunc mocks the Push method.
 	PushFunc func(ctx context.Context, ref string, blob io.Reader, metadata registry.PushMetadata) (*registry.PushResult, error)
+
+	// ResolveRefFunc mocks the ResolveRef method.
+	ResolveRefFunc func(ctx context.Context, ref string) (digest.Digest, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -86,6 +104,17 @@ type RegistryMock struct {
 			Ctx context.Context
 			// Ref is the ref argument value.
 			Ref string
+		}
+		// FetchBlobByDigest holds details about calls to the FetchBlobByDigest method.
+		FetchBlobByDigest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ref is the ref argument value.
+			Ref string
+			// D is the d argument value.
+			D digest.Digest
+			// Size is the size argument value.
+			Size int64
 		}
 		// FetchManifest holds details about calls to the FetchManifest method.
 		FetchManifest []struct {
@@ -112,6 +141,17 @@ type RegistryMock struct {
 			// Ref is the ref argument value.
 			Ref string
 		}
+		// OpenBlobByDigest holds details about calls to the OpenBlobByDigest method.
+		OpenBlobByDigest []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ref is the ref argument value.
+			Ref string
+			// D is the d argument value.
+			D digest.Digest
+			// Size is the size argument value.
+			Size int64
+		}
 		// Push holds details about calls to the Push method.
 		Push []struct {
 			// Ctx is the ctx argument value.
@@ -123,13 +163,23 @@ type RegistryMock struct {
 			// Metadata is the metadata argument value.
 			Metadata registry.PushMetadata
 		}
+		// ResolveRef holds details about calls to the ResolveRef method.
+		ResolveRef []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Ref is the ref argument value.
+			Ref string
+		}
 	}
 	lockAttachArtifact       sync.RWMutex
 	lockFetchBlob            sync.RWMutex
+	lockFetchBlobByDigest    sync.RWMutex
 	lockFetchManifest        sync.RWMutex
 	lockFetchReferrerContent sync.RWMutex
 	lockOpenBlob             sync.RWMutex
+	lockOpenBlobByDigest     sync.RWMutex
 	lockPush                 sync.RWMutex
+	lockResolveRef           sync.RWMutex
 }
 
 // AttachArtifact calls AttachArtifactFunc.
@@ -213,6 +263,50 @@ func (mock *RegistryMock) FetchBlobCalls() []struct {
 	mock.lockFetchBlob.RLock()
 	calls = mock.calls.FetchBlob
 	mock.lockFetchBlob.RUnlock()
+	return calls
+}
+
+// FetchBlobByDigest calls FetchBlobByDigestFunc.
+func (mock *RegistryMock) FetchBlobByDigest(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
+	if mock.FetchBlobByDigestFunc == nil {
+		panic("RegistryMock.FetchBlobByDigestFunc: method is nil but Registry.FetchBlobByDigest was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Ref  string
+		D    digest.Digest
+		Size int64
+	}{
+		Ctx:  ctx,
+		Ref:  ref,
+		D:    d,
+		Size: size,
+	}
+	mock.lockFetchBlobByDigest.Lock()
+	mock.calls.FetchBlobByDigest = append(mock.calls.FetchBlobByDigest, callInfo)
+	mock.lockFetchBlobByDigest.Unlock()
+	return mock.FetchBlobByDigestFunc(ctx, ref, d, size)
+}
+
+// FetchBlobByDigestCalls gets all the calls that were made to FetchBlobByDigest.
+// Check the length with:
+//
+//	len(mockedRegistry.FetchBlobByDigestCalls())
+func (mock *RegistryMock) FetchBlobByDigestCalls() []struct {
+	Ctx  context.Context
+	Ref  string
+	D    digest.Digest
+	Size int64
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Ref  string
+		D    digest.Digest
+		Size int64
+	}
+	mock.lockFetchBlobByDigest.RLock()
+	calls = mock.calls.FetchBlobByDigest
+	mock.lockFetchBlobByDigest.RUnlock()
 	return calls
 }
 
@@ -332,6 +426,50 @@ func (mock *RegistryMock) OpenBlobCalls() []struct {
 	return calls
 }
 
+// OpenBlobByDigest calls OpenBlobByDigestFunc.
+func (mock *RegistryMock) OpenBlobByDigest(ctx context.Context, ref string, d digest.Digest, size int64) (estargz.BlobSource, error) {
+	if mock.OpenBlobByDigestFunc == nil {
+		panic("RegistryMock.OpenBlobByDigestFunc: method is nil but Registry.OpenBlobByDigest was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Ref  string
+		D    digest.Digest
+		Size int64
+	}{
+		Ctx:  ctx,
+		Ref:  ref,
+		D:    d,
+		Size: size,
+	}
+	mock.lockOpenBlobByDigest.Lock()
+	mock.calls.OpenBlobByDigest = append(mock.calls.OpenBlobByDigest, callInfo)
+	mock.lockOpenBlobByDigest.Unlock()
+	return mock.OpenBlobByDigestFunc(ctx, ref, d, size)
+}
+
+// OpenBlobByDigestCalls gets all the calls that were made to OpenBlobByDigest.
+// Check the length with:
+//
+//	len(mockedRegistry.OpenBlobByDigestCalls())
+func (mock *RegistryMock) OpenBlobByDigestCalls() []struct {
+	Ctx  context.Context
+	Ref  string
+	D    digest.Digest
+	Size int64
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Ref  string
+		D    digest.Digest
+		Size int64
+	}
+	mock.lockOpenBlobByDigest.RLock()
+	calls = mock.calls.OpenBlobByDigest
+	mock.lockOpenBlobByDigest.RUnlock()
+	return calls
+}
+
 // Push calls PushFunc.
 func (mock *RegistryMock) Push(ctx context.Context, ref string, blob io.Reader, metadata registry.PushMetadata) (*registry.PushResult, error) {
 	if mock.PushFunc == nil {
@@ -373,5 +511,41 @@ func (mock *RegistryMock) PushCalls() []struct {
 	mock.lockPush.RLock()
 	calls = mock.calls.Push
 	mock.lockPush.RUnlock()
+	return calls
+}
+
+// ResolveRef calls ResolveRefFunc.
+func (mock *RegistryMock) ResolveRef(ctx context.Context, ref string) (digest.Digest, error) {
+	if mock.ResolveRefFunc == nil {
+		panic("RegistryMock.ResolveRefFunc: method is nil but Registry.ResolveRef was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Ref string
+	}{
+		Ctx: ctx,
+		Ref: ref,
+	}
+	mock.lockResolveRef.Lock()
+	mock.calls.ResolveRef = append(mock.calls.ResolveRef, callInfo)
+	mock.lockResolveRef.Unlock()
+	return mock.ResolveRefFunc(ctx, ref)
+}
+
+// ResolveRefCalls gets all the calls that were made to ResolveRef.
+// Check the length with:
+//
+//	len(mockedRegistry.ResolveRefCalls())
+func (mock *RegistryMock) ResolveRefCalls() []struct {
+	Ctx context.Context
+	Ref string
+} {
+	var calls []struct {
+		Ctx context.Context
+		Ref string
+	}
+	mock.lockResolveRef.RLock()
+	calls = mock.calls.ResolveRef
+	mock.lockResolveRef.RUnlock()
 	return calls
 }

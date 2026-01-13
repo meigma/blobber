@@ -39,15 +39,34 @@ type Registry interface {
 	// Use WithoutReferrers to skip referrer fetching for performance-critical paths.
 	FetchManifest(ctx context.Context, ref string, opts ...FetchOption) (*BlobManifest, error)
 
+	// ResolveRef resolves a ref to its blob digest without fetching the blob.
+	// This is useful for cache lookups where only the digest is needed.
+	// The ref can be a tag or digest reference.
+	ResolveRef(ctx context.Context, ref string) (digest.Digest, error)
+
 	// FetchBlob downloads the entire blob content.
 	// The ref can be a tag or digest reference.
 	// The caller is responsible for closing the returned reader.
 	FetchBlob(ctx context.Context, ref string) (io.ReadCloser, error)
 
+	// FetchBlobByDigest downloads the blob using a known digest.
+	// The ref identifies the repository; the digest specifies which blob to fetch.
+	// Use this when the digest is already known (e.g., from cache) to avoid
+	// a redundant manifest fetch.
+	// The caller is responsible for closing the returned reader.
+	FetchBlobByDigest(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error)
+
 	// OpenBlob returns a reader for random access to the blob.
 	// This enables streaming via TOC-based byte range requests.
 	// The caller is responsible for closing the returned reader.
 	OpenBlob(ctx context.Context, ref string) (estargz.BlobSource, error)
+
+	// OpenBlobByDigest returns a reader for random access using a known digest.
+	// The ref identifies the repository; the digest specifies which blob to open.
+	// Use this when the digest is already known (e.g., from cache) to avoid
+	// a redundant manifest fetch.
+	// The caller is responsible for closing the returned reader.
+	OpenBlobByDigest(ctx context.Context, ref string, d digest.Digest, size int64) (estargz.BlobSource, error)
 
 	// AttachArtifact attaches content to a manifest as a referrer.
 	// The ref identifies the target manifest (tag or digest reference).

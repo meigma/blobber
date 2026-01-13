@@ -235,6 +235,25 @@ func (r *registry) FetchManifest(ctx context.Context, ref string, opts ...FetchO
 	return result, nil
 }
 
+// ResolveRef resolves a ref to its blob digest without fetching the blob.
+func (r *registry) ResolveRef(ctx context.Context, ref string) (digest.Digest, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
+	manifest, err := r.FetchManifest(ctx, ref, WithoutReferrers())
+	if err != nil {
+		return "", err
+	}
+
+	r.logger.Debug("resolved ref",
+		"ref", ref,
+		"digest", manifest.Blob.Digest,
+	)
+
+	return manifest.Blob.Digest, nil
+}
+
 // FetchBlob downloads the entire blob content.
 func (r *registry) FetchBlob(ctx context.Context, ref string) (io.ReadCloser, error) {
 	if err := ctx.Err(); err != nil {
@@ -247,11 +266,18 @@ func (r *registry) FetchBlob(ctx context.Context, ref string) (io.ReadCloser, er
 		return nil, err
 	}
 
-	// Fetch the blob.
+	return r.FetchBlobByDigest(ctx, ref, manifest.Blob.Digest, manifest.Blob.Size)
+}
+
+// FetchBlobByDigest downloads the blob using a known digest.
+func (r *registry) FetchBlobByDigest(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	blobDesc := ocispec.Descriptor{
-		MediaType: manifest.Blob.MediaType,
-		Digest:    manifest.Blob.Digest,
-		Size:      manifest.Blob.Size,
+		Digest: d,
+		Size:   size,
 	}
 
 	rc, err := r.client.FetchBlob(ctx, ref, blobDesc)
@@ -259,10 +285,10 @@ func (r *registry) FetchBlob(ctx context.Context, ref string) (io.ReadCloser, er
 		return nil, fmt.Errorf("fetch blob: %w", err)
 	}
 
-	r.logger.Debug("fetched blob",
+	r.logger.Debug("fetched blob by digest",
 		"ref", ref,
-		"digest", manifest.Blob.Digest,
-		"size", manifest.Blob.Size,
+		"digest", d,
+		"size", size,
 	)
 
 	return rc, nil
@@ -280,11 +306,18 @@ func (r *registry) OpenBlob(ctx context.Context, ref string) (estargz.BlobSource
 		return nil, err
 	}
 
-	// Create blob reader.
+	return r.OpenBlobByDigest(ctx, ref, manifest.Blob.Digest, manifest.Blob.Size)
+}
+
+// OpenBlobByDigest returns a reader for random access using a known digest.
+func (r *registry) OpenBlobByDigest(ctx context.Context, ref string, d digest.Digest, size int64) (estargz.BlobSource, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	blobDesc := ocispec.Descriptor{
-		MediaType: manifest.Blob.MediaType,
-		Digest:    manifest.Blob.Digest,
-		Size:      manifest.Blob.Size,
+		Digest: d,
+		Size:   size,
 	}
 
 	reader, err := r.client.BlobReader(ctx, ref, blobDesc)
@@ -292,10 +325,10 @@ func (r *registry) OpenBlob(ctx context.Context, ref string) (estargz.BlobSource
 		return nil, fmt.Errorf("create blob reader: %w", err)
 	}
 
-	r.logger.Debug("opened blob",
+	r.logger.Debug("opened blob by digest",
 		"ref", ref,
-		"digest", manifest.Blob.Digest,
-		"size", manifest.Blob.Size,
+		"digest", d,
+		"size", size,
 	)
 
 	return reader, nil

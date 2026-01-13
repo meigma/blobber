@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
@@ -228,20 +229,31 @@ func TestStream_Success(t *testing.T) {
 		"data.json": &fstest.MapFile{Data: []byte(`{"key": "value"}`), Mode: 0o644},
 	}
 	blob := buildClientTestBlob(t, src)
+	blobDigest := digest.FromBytes(blob)
 
 	mockRegistry := &mocks.RegistryMock{
-		OpenBlobFunc: func(ctx context.Context, ref string) (estargz.BlobSource, error) {
-			// Return a mock that implements the required interface.
-			return nil, errors.New("OpenBlob not implemented in this test")
+		FetchManifestFunc: func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error) {
+			return &registry.BlobManifest{
+				Digest: digest.FromString("manifest"),
+				Size:   100,
+				Blob: registry.BlobDescriptor{
+					Digest: blobDigest,
+					Size:   int64(len(blob)),
+				},
+			}, nil
 		},
-		FetchBlobFunc: func(ctx context.Context, ref string) (io.ReadCloser, error) {
+		OpenBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (estargz.BlobSource, error) {
+			// Return a mock that implements the required interface.
+			return nil, errors.New("OpenBlobByDigest not implemented in this test")
+		},
+		FetchBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
 			return io.NopCloser(bytes.NewReader(blob)), nil
 		},
 	}
 
 	client := NewClient(withRegistry(mockRegistry))
 
-	// Stream requires OpenBlob which needs more complex mocking.
+	// Stream requires OpenBlobByDigest which needs more complex mocking.
 	// For this test, we verify the error path.
 	_, err := client.Stream(context.Background(), "ghcr.io/org/repo:v1")
 	require.Error(t, err)
@@ -311,4 +323,184 @@ func buildClientTestBlob(t *testing.T, src fstest.MapFS) []byte {
 	require.NoError(t, err)
 
 	return buf.Bytes()
+}
+
+// Integration tests for caching.
+
+func TestPull_WithFileCache_CacheMissThenHit(t *testing.T) {
+	t.Parallel()
+
+	// Create test content.
+	src := fstest.MapFS{
+		"config.yaml": &fstest.MapFile{Data: []byte("key: value"), Mode: 0o644},
+	}
+	blob := buildClientTestBlob(t, src)
+	blobDigest := digest.FromBytes(blob)
+
+	// Track how many times the registry is called.
+	fetchCount := 0
+
+	mockRegistry := &mocks.RegistryMock{
+		ResolveRefFunc: func(ctx context.Context, ref string) (digest.Digest, error) {
+			return blobDigest, nil
+		},
+		FetchManifestFunc: func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error) {
+			return &registry.BlobManifest{
+				Digest: digest.FromString("manifest"),
+				Blob: registry.BlobDescriptor{
+					Digest: blobDigest,
+					Size:   int64(len(blob)),
+				},
+			}, nil
+		},
+		FetchBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
+			fetchCount++
+			return io.NopCloser(bytes.NewReader(blob)), nil
+		},
+	}
+
+	cacheDir := t.TempDir()
+	client := NewClient(
+		withRegistry(mockRegistry),
+		WithFileCache(cacheDir),
+	)
+
+	// First pull - cache miss.
+	handle1, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+
+	f1, err := handle1.Open("config.yaml")
+	require.NoError(t, err)
+	content1, err := io.ReadAll(f1)
+	require.NoError(t, err)
+	assert.Equal(t, "key: value", string(content1))
+	f1.Close()
+	handle1.Close()
+
+	// Verify network was called.
+	assert.Equal(t, 1, fetchCount, "first pull should fetch from network")
+
+	// Second pull - cache hit.
+	handle2, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+
+	f2, err := handle2.Open("config.yaml")
+	require.NoError(t, err)
+	content2, err := io.ReadAll(f2)
+	require.NoError(t, err)
+	assert.Equal(t, "key: value", string(content2))
+	f2.Close()
+	handle2.Close()
+
+	// Verify network was NOT called again.
+	assert.Equal(t, 1, fetchCount, "second pull should serve from cache")
+}
+
+func TestPull_WithRefCache_TTLBehavior(t *testing.T) {
+	t.Parallel()
+
+	src := fstest.MapFS{
+		"file.txt": &fstest.MapFile{Data: []byte("data"), Mode: 0o644},
+	}
+	blob := buildClientTestBlob(t, src)
+	blobDigest := digest.FromBytes(blob)
+
+	resolveCount := 0
+
+	mockRegistry := &mocks.RegistryMock{
+		ResolveRefFunc: func(ctx context.Context, ref string) (digest.Digest, error) {
+			resolveCount++
+			return blobDigest, nil
+		},
+		FetchManifestFunc: func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error) {
+			return &registry.BlobManifest{
+				Digest: digest.FromString("manifest"),
+				Blob: registry.BlobDescriptor{
+					Digest: blobDigest,
+					Size:   int64(len(blob)),
+				},
+			}, nil
+		},
+		FetchBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(blob)), nil
+		},
+	}
+
+	cacheDir := t.TempDir()
+	client := NewClient(
+		withRegistry(mockRegistry),
+		WithRefCache(cacheDir, 1*time.Hour), // Long TTL
+		WithFileCache(cacheDir),
+	)
+
+	// First pull - ref cache miss.
+	handle1, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+	handle1.Close()
+	assert.Equal(t, 1, resolveCount, "first pull should resolve ref")
+
+	// Second pull - ref cache hit (within TTL).
+	handle2, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+	handle2.Close()
+	assert.Equal(t, 1, resolveCount, "second pull should use cached ref")
+}
+
+func TestPruneFileCache_Integration(t *testing.T) {
+	t.Parallel()
+
+	src := fstest.MapFS{
+		"file.txt": &fstest.MapFile{Data: []byte("data"), Mode: 0o644},
+	}
+	blob := buildClientTestBlob(t, src)
+	blobDigest := digest.FromBytes(blob)
+
+	fetchCount := 0
+
+	mockRegistry := &mocks.RegistryMock{
+		ResolveRefFunc: func(ctx context.Context, ref string) (digest.Digest, error) {
+			return blobDigest, nil
+		},
+		FetchManifestFunc: func(ctx context.Context, ref string, opts ...registry.FetchOption) (*registry.BlobManifest, error) {
+			return &registry.BlobManifest{
+				Digest: digest.FromString("manifest"),
+				Blob: registry.BlobDescriptor{
+					Digest: blobDigest,
+					Size:   int64(len(blob)),
+				},
+			}, nil
+		},
+		FetchBlobByDigestFunc: func(ctx context.Context, ref string, d digest.Digest, size int64) (io.ReadCloser, error) {
+			fetchCount++
+			return io.NopCloser(bytes.NewReader(blob)), nil
+		},
+	}
+
+	cacheDir := t.TempDir()
+	client := NewClient(
+		withRegistry(mockRegistry),
+		WithFileCache(cacheDir),
+	)
+
+	// Pull to populate cache.
+	handle, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+	handle.Close()
+	assert.Equal(t, 1, fetchCount, "first pull should fetch from network")
+
+	// Second pull - cache hit.
+	handle2, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+	handle2.Close()
+	assert.Equal(t, 1, fetchCount, "should be cache hit before prune")
+
+	// Prune with MaxSize=1 to remove everything (our blob is larger).
+	err = PruneFileCache(context.Background(), cacheDir, PruneStrategy{MaxSize: 1})
+	require.NoError(t, err)
+
+	// Now pull should fetch again (cache miss).
+	handle3, err := client.Pull(context.Background(), "ghcr.io/org/repo:v1")
+	require.NoError(t, err)
+	handle3.Close()
+	assert.Equal(t, 2, fetchCount, "should be cache miss after prune")
 }

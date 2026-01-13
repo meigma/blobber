@@ -2,6 +2,7 @@ package blobber
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/containerd/stargz-snapshotter/estargz/zstdchunked"
@@ -30,11 +31,14 @@ func ZstdCompression() Compressor {
 type ClientOption func(*clientOptions)
 
 type clientOptions struct {
-	credStore credentials.Store
-	plainHTTP bool
-	userAgent string
-	logger    *slog.Logger
-	registry  interface{} // For testing: accepts registry.Registry
+	credStore     credentials.Store
+	plainHTTP     bool
+	userAgent     string
+	logger        *slog.Logger
+	registry      interface{} // For testing: accepts registry.Registry
+	refCachePath  string
+	refCacheTTL   time.Duration
+	fileCachePath string
 }
 
 // WithCredentialStore sets the credential store for registry authentication.
@@ -64,6 +68,35 @@ func WithUserAgent(ua string) ClientOption {
 func WithLogger(logger *slog.Logger) ClientOption {
 	return func(o *clientOptions) {
 		o.logger = logger
+	}
+}
+
+// WithRefCache enables caching of ref→digest mappings.
+//
+// The TTL controls how long cached mappings are considered fresh. After the TTL
+// expires, the ref is re-resolved from the registry. This avoids repeated manifest
+// fetches for the same ref within the TTL window.
+//
+// The cache is stored at the given path. Multiple clients can share the same cache
+// path safely.
+func WithRefCache(path string, ttl time.Duration) ClientOption {
+	return func(o *clientOptions) {
+		o.refCachePath = path
+		o.refCacheTTL = ttl
+	}
+}
+
+// WithFileCache enables caching of extracted files.
+//
+// When enabled, Pull() extracts files directly to the cache and serves from there.
+// Subsequent Pull() calls for the same digest return immediately from cache.
+//
+// For Stream(), individual files are cached on-demand when fully read.
+//
+// The cache is stored at the given path. Use [PruneFileCache] to manage cache size.
+func WithFileCache(path string) ClientOption {
+	return func(o *clientOptions) {
+		o.fileCachePath = path
 	}
 }
 
