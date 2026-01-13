@@ -25,6 +25,7 @@ type Client struct {
 	logger    *slog.Logger
 	refCache  cache.RefCache
 	fileCache cache.FileCache
+	manCache  cache.ManifestCache
 }
 
 // withRegistry is an unexported option for injecting a registry (for testing).
@@ -49,6 +50,7 @@ func NewClient(opts ...ClientOption) *Client {
 	// Initialize caches if configured.
 	var refCache cache.RefCache
 	var fileCache cache.FileCache
+	var manCache cache.ManifestCache
 
 	if options.refCachePath != "" {
 		var err error
@@ -72,6 +74,20 @@ func NewClient(opts ...ClientOption) *Client {
 		}
 	}
 
+	if options.manifestCache && options.fileCachePath != "" {
+		var err error
+		manCache, err = cache.NewManifestCache(options.fileCachePath)
+		if err != nil {
+			logger.Warn("failed to create manifest cache, caching disabled",
+				"path", options.fileCachePath,
+				"error", err,
+			)
+		}
+	}
+	if options.manifestCache && options.fileCachePath == "" {
+		logger.Warn("manifest cache requested without file cache path, caching disabled")
+	}
+
 	// Use injected registry if provided (for testing).
 	if options.registry != nil {
 		if r, ok := options.registry.(registry.Registry); ok {
@@ -80,6 +96,7 @@ func NewClient(opts ...ClientOption) *Client {
 				logger:    logger,
 				refCache:  refCache,
 				fileCache: fileCache,
+				manCache:  manCache,
 			}
 		}
 	}
@@ -98,6 +115,9 @@ func NewClient(opts ...ClientOption) *Client {
 	if options.logger != nil {
 		ociOpts = append(ociOpts, oci.WithLogger(options.logger))
 	}
+	if options.rangeHook != nil {
+		ociOpts = append(ociOpts, oci.WithRangeHook(options.rangeHook))
+	}
 
 	ociClient := oci.NewClient(ociOpts...)
 
@@ -105,6 +125,9 @@ func NewClient(opts ...ClientOption) *Client {
 	var regOpts []registry.Option
 	if options.logger != nil {
 		regOpts = append(regOpts, registry.WithLogger(options.logger))
+	}
+	if manCache != nil {
+		regOpts = append(regOpts, registry.WithManifestCache(manCache))
 	}
 
 	reg := registry.New(ociClient, regOpts...)
@@ -114,6 +137,7 @@ func NewClient(opts ...ClientOption) *Client {
 		logger:    logger,
 		refCache:  refCache,
 		fileCache: fileCache,
+		manCache:  manCache,
 	}
 }
 
@@ -263,7 +287,7 @@ func (c *Client) Pull(ctx context.Context, ref string, opts ...PullOption) (*Blo
 		}
 	}
 
-	// Populate RefCache if configured, even without FileCache.
+	// Populate RefCache if configured
 	// This allows subsequent Pull/Stream calls to benefit from cached ref resolution.
 	if c.refCache != nil && c.fileCache == nil {
 		if _, err := c.resolveRef(ctx, ref); err != nil {
@@ -463,6 +487,11 @@ func (c *Client) Stream(ctx context.Context, ref string, opts ...StreamOption) (
 	blobReader, err := c.registry.OpenBlobByDigest(ctx, ref, blobDigest, blobSize)
 	if err != nil {
 		return nil, fmt.Errorf("open blob: %w", err)
+	}
+
+	if c.fileCache != nil {
+		tocCache := cache.NewTOCCache(c.fileCache)
+		blobReader = estargz.WrapWithTOCCache(blobReader, blobDigest, tocCache)
 	}
 
 	// Create fetchFull callback for CopyTo optimization.

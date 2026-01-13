@@ -38,6 +38,17 @@ type RefCache interface {
 	Store(ref string, d digest.Digest)
 }
 
+// ManifestCache caches manifest bytes by digest.
+//
+// Manifests are immutable when addressed by digest, so no TTL is required.
+type ManifestCache interface {
+	// Load returns cached manifest bytes for a digest.
+	Load(d digest.Digest) ([]byte, bool)
+
+	// Store writes manifest bytes for a digest.
+	Store(d digest.Digest, raw []byte) error
+}
+
 // FileCache caches extracted files by blob digest.
 //
 // Files are stored under their blob's digest, preserving directory structure.

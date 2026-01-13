@@ -36,9 +36,11 @@ type clientOptions struct {
 	userAgent     string
 	logger        *slog.Logger
 	registry      interface{} // For testing: accepts registry.Registry
+	rangeHook     func(offset, length int64)
 	refCachePath  string
 	refCacheTTL   time.Duration
 	fileCachePath string
+	manifestCache bool
 }
 
 // WithCredentialStore sets the credential store for registry authentication.
@@ -71,6 +73,14 @@ func WithLogger(logger *slog.Logger) ClientOption {
 	}
 }
 
+// WithRangeHook sets a hook invoked on every range request.
+// Intended for testing and metrics.
+func WithRangeHook(hook func(offset, length int64)) ClientOption {
+	return func(o *clientOptions) {
+		o.rangeHook = hook
+	}
+}
+
 // WithRefCache enables caching of ref→digest mappings.
 //
 // The TTL controls how long cached mappings are considered fresh. After the TTL
@@ -97,6 +107,15 @@ func WithRefCache(path string, ttl time.Duration) ClientOption {
 func WithFileCache(path string) ClientOption {
 	return func(o *clientOptions) {
 		o.fileCachePath = path
+	}
+}
+
+// WithManifestCache enables caching of manifest bytes by digest.
+//
+// The cache is stored in the same root path used for ref/file caching.
+func WithManifestCache() ClientOption {
+	return func(o *clientOptions) {
+		o.manifestCache = true
 	}
 }
 

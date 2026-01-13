@@ -38,3 +38,11 @@ func WithLogger(logger *slog.Logger) Option {
 		c.logger = logger
 	}
 }
+
+// WithRangeHook sets a hook invoked on every range request.
+// Intended for testing and metrics.
+func WithRangeHook(hook func(offset, length int64)) Option {
+	return func(c *client) {
+		c.rangeHook = hook
+	}
+}

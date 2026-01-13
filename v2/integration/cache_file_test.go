@@ -230,6 +230,52 @@ func TestFileCache_PartialEntryPruned(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "partial cache should be removed")
 }
 
+func TestFileCache_StreamTOCCacheSkipsRangeFetch(t *testing.T) {
+	ctx := testutils.TestContext(t)
+	ref := registry.TestRef(t, "blob")
+	srcFS := testutils.TestFS()
+	cacheDir := t.TempDir()
+
+	var ranges []byteRange
+
+	client := blobber.NewClient(
+		blobber.WithPlainHTTP(true),
+		blobber.WithFileCache(cacheDir),
+		blobber.WithRangeHook(func(offset, length int64) {
+			ranges = append(ranges, byteRange{offset: offset, length: length})
+		}),
+	)
+
+	// Push.
+	result, err := client.Push(ctx, ref, srcFS)
+	require.NoError(t, err)
+
+	// First stream forces TOC fetch and caches TOC bytes.
+	handle1, err := client.Stream(ctx, ref)
+	require.NoError(t, err)
+	_, err = handle1.ReadDir(".")
+	require.NoError(t, err)
+	handle1.Close()
+
+	// Compute TOC range from cached metadata.
+	blobCacheDir := fileCacheDir(cacheDir, result.Manifest.Blob.Digest.String())
+	tocEntry := readTOCCacheEntry(t, filepath.Join(blobCacheDir, "toc.json"))
+	footerBytes := readFooterCacheBytes(t, filepath.Join(blobCacheDir, "footer.bin"))
+	footerOffset := result.Manifest.Blob.Size - int64(len(footerBytes))
+
+	ranges = nil
+
+	// Second stream should reuse cached TOC.
+	handle2, err := client.Stream(ctx, ref)
+	require.NoError(t, err)
+	_, err = handle2.ReadDir(".")
+	require.NoError(t, err)
+	handle2.Close()
+
+	assert.False(t, hasRange(ranges, tocEntry.Offset, tocEntry.Size), "toc range should not be fetched")
+	assert.False(t, hasRange(ranges, footerOffset, int64(len(footerBytes))), "footer range should not be fetched")
+}
+
 func TestFileCache_Stream_CopyTo(t *testing.T) {
 	ctx := testutils.TestContext(t)
 	ref := registry.TestRef(t, "blob")
@@ -319,11 +365,31 @@ func readAll(f fs.File) ([]byte, error) {
 	return content, nil
 }
 
+type byteRange struct {
+	offset int64
+	length int64
+}
+
+func hasRange(ranges []byteRange, offset, length int64) bool {
+	for _, r := range ranges {
+		if r.offset == offset && r.length == length {
+			return true
+		}
+	}
+	return false
+}
+
 type fileCacheEntry struct {
 	Digest       string    `json:"digest"`
 	Size         int64     `json:"size"`
 	LastAccessed time.Time `json:"lastAccessed"`
 	Complete     *bool     `json:"complete,omitempty"`
+}
+
+type tocCacheEntry struct {
+	Digest string `json:"digest"`
+	Offset int64  `json:"offset"`
+	Size   int64  `json:"size"`
 }
 
 func readFileCacheEntry(t *testing.T, path string) fileCacheEntry {
@@ -343,4 +409,24 @@ func writeFileCacheEntry(t *testing.T, path string, entry fileCacheEntry) {
 	data, err := json.MarshalIndent(entry, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, data, 0o644))
+}
+
+func readTOCCacheEntry(t *testing.T, path string) tocCacheEntry {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	var entry tocCacheEntry
+	require.NoError(t, json.Unmarshal(data, &entry))
+	return entry
+}
+
+func readFooterCacheBytes(t *testing.T, path string) []byte {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.NotEmpty(t, data)
+	return data
 }

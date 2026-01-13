@@ -32,6 +32,7 @@ type client struct {
 	userAgent string
 	credStore credentials.Store
 	logger    *slog.Logger
+	rangeHook func(offset, length int64)
 }
 
 // NewClient creates a new Client with the given options.
@@ -137,6 +138,10 @@ func (c *client) FetchBlob(ctx context.Context, ref string, desc ocispec.Descrip
 func (c *client) FetchBlobRange(ctx context.Context, ref string, desc ocispec.Descriptor, offset, length int64) (io.ReadCloser, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+
+	if c.rangeHook != nil {
+		c.rangeHook(offset, length)
 	}
 
 	// Validate range parameters.

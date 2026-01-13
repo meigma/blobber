@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
@@ -57,6 +58,45 @@ func testManifestJSON(t *testing.T, blobDigest digest.Digest, blobSize int64) []
 	data, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	return data
+}
+
+type manifestCacheStub struct {
+	mu         sync.Mutex
+	data       map[digest.Digest][]byte
+	loadCalls  []digest.Digest
+	storeCalls []manifestCacheStore
+}
+
+type manifestCacheStore struct {
+	digest digest.Digest
+	raw    []byte
+}
+
+func (c *manifestCacheStub) Load(d digest.Digest) ([]byte, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.loadCalls = append(c.loadCalls, d)
+	if c.data == nil {
+		return nil, false
+	}
+	raw, ok := c.data[d]
+	return raw, ok
+}
+
+func (c *manifestCacheStub) Store(d digest.Digest, raw []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.storeCalls = append(c.storeCalls, manifestCacheStore{
+		digest: d,
+		raw:    append([]byte(nil), raw...),
+	})
+	if c.data == nil {
+		c.data = make(map[digest.Digest][]byte)
+	}
+	c.data[d] = append([]byte(nil), raw...)
+	return nil
 }
 
 func TestPush(t *testing.T) {
@@ -272,6 +312,105 @@ func TestFetchManifest(t *testing.T) {
 		assert.Equal(t, blobSize, result.Blob.Size)
 		require.Len(t, result.Referrers, 1)
 		assert.Equal(t, referrers[0].ArtifactType, result.Referrers[0].ArtifactType)
+	})
+
+	t.Run("cache hit for digest ref", func(t *testing.T) {
+		t.Parallel()
+
+		manifestJSON := testManifestJSON(t, blobDigest, blobSize)
+		manifestDigest := digest.FromBytes(manifestJSON)
+		digestRef := "ghcr.io/test/repo@" + manifestDigest.String()
+
+		cache := &manifestCacheStub{
+			data: map[digest.Digest][]byte{
+				manifestDigest: manifestJSON,
+			},
+		}
+
+		var gotDigest string
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				t.Fatalf("expected manifest cache hit without fetch")
+				return nil, ocispec.Descriptor{}, nil
+			},
+			ListReferrersFunc: func(_ context.Context, _ string, digestStr string, _ string) ([]ocispec.Descriptor, error) {
+				gotDigest = digestStr
+				return nil, nil
+			},
+		}
+
+		reg := New(mock, WithManifestCache(cache))
+		result, err := reg.FetchManifest(context.Background(), digestRef)
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, manifestDigest, result.Digest)
+		assert.Equal(t, int64(len(manifestJSON)), result.Size)
+		assert.Equal(t, manifestDigest.String(), gotDigest)
+		assert.Len(t, cache.loadCalls, 1)
+		assert.Empty(t, cache.storeCalls)
+	})
+
+	t.Run("cache miss for digest ref stores manifest", func(t *testing.T) {
+		t.Parallel()
+
+		manifestJSON := testManifestJSON(t, blobDigest, blobSize)
+		manifestDigest := digest.FromBytes(manifestJSON)
+		digestRef := "ghcr.io/test/repo@" + manifestDigest.String()
+
+		cache := &manifestCacheStub{}
+
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				return manifestJSON, ocispec.Descriptor{
+					Digest: manifestDigest,
+					Size:   int64(len(manifestJSON)),
+				}, nil
+			},
+		}
+
+		reg := New(mock, WithManifestCache(cache))
+		result, err := reg.FetchManifest(context.Background(), digestRef, WithoutReferrers())
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Len(t, cache.storeCalls, 1)
+		assert.Equal(t, manifestDigest, cache.storeCalls[0].digest)
+		assert.Equal(t, manifestJSON, cache.storeCalls[0].raw)
+	})
+
+	t.Run("cache digest mismatch falls back to fetch", func(t *testing.T) {
+		t.Parallel()
+
+		manifestJSON := testManifestJSON(t, blobDigest, blobSize)
+		manifestDigest := digest.FromBytes(manifestJSON)
+		digestRef := "ghcr.io/test/repo@" + manifestDigest.String()
+
+		cache := &manifestCacheStub{
+			data: map[digest.Digest][]byte{
+				manifestDigest: []byte("not the manifest"),
+			},
+		}
+
+		fetchCalls := 0
+		mock := &mocks.ClientMock{
+			FetchManifestFunc: func(_ context.Context, _ string) ([]byte, ocispec.Descriptor, error) {
+				fetchCalls++
+				return manifestJSON, ocispec.Descriptor{
+					Digest: manifestDigest,
+					Size:   int64(len(manifestJSON)),
+				}, nil
+			},
+		}
+
+		reg := New(mock, WithManifestCache(cache))
+		result, err := reg.FetchManifest(context.Background(), digestRef, WithoutReferrers())
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		assert.Equal(t, 1, fetchCalls)
+		require.Len(t, cache.storeCalls, 1)
+		assert.Equal(t, manifestDigest, cache.storeCalls[0].digest)
 	})
 
 	t.Run("success without referrers option", func(t *testing.T) {
