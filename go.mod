@@ -7,11 +7,11 @@ replace github.com/meigma/blobber/sigstore => ./sigstore
 
 require (
 	github.com/charmbracelet/bubbles v0.21.0
-	github.com/containerd/stargz-snapshotter/estargz v0.18.1
+	github.com/containerd/stargz-snapshotter/estargz v0.18.2
 	github.com/dustin/go-humanize v1.0.1
 	github.com/felixge/fgprof v0.9.5
 	github.com/grafana/pyroscope-go v1.2.7
-	github.com/klauspost/compress v1.18.2
+	github.com/klauspost/compress v1.18.3
 	github.com/meigma/blobber/sigstore v0.0.0-00010101000000-000000000000
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
@@ -166,7 +166,7 @@ require (
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.33.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
