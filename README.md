@@ -8,6 +8,8 @@
 
 > A Go library and CLI for securely pushing and pulling files to OCI container registries.
 
+NOTE: This repository has been superceeded by [blob](https://github.com/meigma/blob). It's the same principle, but with a custom file format that's up to 1000x faster than estargz.
+
 Blobber uses the [eStargz](https://github.com/containerd/stargz-snapshotter/blob/main/docs/estargz.md) format to enable listing and selective retrieval of files without downloading entire images.
 Listing and streaming require eStargz images; Blobber pushes eStargz by default.
 
