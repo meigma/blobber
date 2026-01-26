@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+
+# CI/CD (not needed in image)
+.github/
+.goreleaser.yaml
+.golangci.yml
+justfile
+release-please-config.json
+.release-please-manifest.json
+
+# Documentation
+docs/
+*.md
+
+# Build artifacts
+dist/
+bin/
+coverage.*
+profiles/
+
+# Test data
+testdata/
+
+# Nix
+flake.*
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude/AI
+.claude/
+CLAUDE.md
+AGENTS.md
+
+# Demo/examples
+demo.tape
+install.sh
